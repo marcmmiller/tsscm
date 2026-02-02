@@ -662,7 +662,31 @@ function initEnv(): Frame {
         .reduce((acc, val) => (acc as number) / (val as number), args[0]),
     ),
   );
-  env.set("foo", new SchemeClosure(["x"], analyzeSexp(new SchemeId("x")), env));
+  env.set(
+    "cons",
+    new SchemeBuiltin((args) => {
+      if (args.length !== 2) throw new Error("cons: Expected two arguments.");
+      return new SCons(args[0], args[1]);
+    }),
+  );
+  env.set(
+    "car",
+    new SchemeBuiltin((args) => {
+      if (args.length !== 1) throw new Error("car: Expected one argument.");
+      if (!(args[0] instanceof SCons))
+        throw new Error("car: Expected a cons cell.");
+      return args[0].car;
+    }),
+  );
+  env.set(
+    "cdr",
+    new SchemeBuiltin((args) => {
+      if (args.length !== 1) throw new Error("cdr: Expected one argument.");
+      if (!(args[0] instanceof SCons))
+        throw new Error("cdr: Expected a cons cell.");
+      return args[0].cdr;
+    }),
+  );
   return env;
 }
 
