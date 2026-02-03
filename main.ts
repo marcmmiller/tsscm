@@ -90,7 +90,9 @@ export class InputStream {
   }
 }
 
+//
 // Lexer that produces tokens from the input stream
+//
 export class Lexer {
   private input: InputStream;
   private currentChar: string | null = null;
@@ -352,6 +354,30 @@ export type SchemeType =
   | boolean
   | null;
 
+function safeCar(s: SchemeType): SchemeType {
+  if (s instanceof SCons) {
+    return s.car;
+  } else {
+    throw new Error("car: Expected cons.");
+  }
+}
+
+function safeCdr(s: SchemeType): SchemeType {
+  if (s instanceof SCons) {
+    return s.cdr;
+  } else {
+    throw new Error("cdr: Expected cons.");
+  }
+}
+
+function safeId(s: SchemeType): SchemeId {
+  if (s instanceof SchemeId) {
+    return s;
+  } else {
+    throw new Error("id: Expected identifier.");
+  }
+}
+
 function printListTail(sexp: SchemeType): string {
   if (sexp === null) {
     return "";
@@ -518,13 +544,31 @@ function analyzeSexp(sexp: SchemeType): (frame: Frame) => SchemeType {
     } else if (carIsId(sexp, "lambda")) {
       return analyzeLambda(sexp.cdr as SCons);
     } else if (carIsId(sexp, "define")) {
-      throw new Error("Not imlemented: define");
+      return analyzeDefine(sexp.cdr as SCons);
     } else {
       return analyzeApplication(sexp);
     }
   } else {
     throw new Error(`Unexpected type: ${typeof sexp}`);
   }
+}
+
+function analyzeDefine(sexp: SCons): (frame: Frame) => SchemeType {
+  let id: string;
+  let val: (frame: Frame) => SchemeType;
+  if (sexp.car instanceof SCons) {
+    // sexp is like ((funcname arg1 arg2) body)
+    id = safeId(safeCar(sexp.car)).id;
+    const lambdaSexp = new SCons(safeCdr(sexp.car), sexp.cdr);
+    val = analyzeLambda(lambdaSexp);
+  } else {
+    id = safeId(sexp.car).id;
+    val = analyzeSexp(safeCar(sexp.cdr));
+  }
+  return (frame: Frame) => {
+    frame.set(id, val(frame));
+    return new SchemeId(id);
+  };
 }
 
 function analyzeApplication(sexp: SCons): (frame: Frame) => SchemeType {
