@@ -6,6 +6,7 @@ export enum TokenType {
   Identifier = "Identifier",
   LeftParen = "LeftParen",
   RightParen = "RightParen",
+  Quote = "Quote",
   Dot = "Dot",
   EOF = "EOF",
 }
@@ -15,6 +16,7 @@ export type Token =
   | { type: TokenType.Identifier; value: string }
   | { type: TokenType.LeftParen }
   | { type: TokenType.RightParen }
+  | { type: TokenType.Quote }
   | { type: TokenType.Dot }
   | { type: TokenType.EOF };
 
@@ -189,6 +191,8 @@ export class Lexer {
           return this.readNumber(".");
         }
         return { type: TokenType.Dot };
+      case "'":
+        return { type: TokenType.Quote };
       default:
         throw new Error(`Unexpected character: ${char}`);
     }
@@ -409,7 +413,7 @@ function printSexp(sexp: SchemeType): string {
   } else if (sexp instanceof SchemeClosure) {
     return "#<closure>";
   } else {
-    throw new Error(`Unexpected type: ${typeof sexp}`);
+    throw new Error(`Unexpected type B: ${typeof sexp}`);
   }
 }
 
@@ -428,6 +432,11 @@ export class SchemeParser {
       return new SchemeId(token.value);
     } else if (token.type === TokenType.LeftParen) {
       return this.parseList();
+    } else if (token.type === TokenType.Quote) {
+      return new SCons(
+        new SchemeId("quote"),
+        new SCons(await this.parse(), null),
+      );
     } else {
       throw new Error(`Unexpected token: ${token.type}`);
     }
@@ -551,6 +560,7 @@ function analyzeSexp(sexp: SchemeType): (frame: Frame) => SchemeType {
       return analyzeApplication(sexp);
     }
   } else {
+    console.log("Unexpected type A:", typeof sexp);
     throw new Error(`Unexpected type: ${typeof sexp}`);
   }
 }
