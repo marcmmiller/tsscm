@@ -545,6 +545,8 @@ function analyzeSexp(sexp: SchemeType): (frame: Frame) => SchemeType {
       return analyzeLambda(sexp.cdr as SCons);
     } else if (carIsId(sexp, "define")) {
       return analyzeDefine(sexp.cdr as SCons);
+    } else if (carIsId(sexp, "define-macro")) {
+      throw new Error("define-macro not implemented");
     } else {
       return analyzeApplication(sexp);
     }
