@@ -335,6 +335,7 @@ class SchemeBuiltin {
 class SchemeClosure {
   constructor(
     protected params: string[],
+    protected restParam: string | null,
     protected expr: (frame: Frame) => SchemeType,
     protected env: Frame,
   ) {}
@@ -343,6 +344,13 @@ class SchemeClosure {
     const frame = new Frame(this.env);
     for (let i = 0; i < this.params.length; i++) {
       frame.set(this.params[i], args[i]);
+    }
+    if (this.restParam != null) {
+      const restArgs = args.slice(this.params.length);
+      const restList = restArgs.reverse().reduce((accumulator, current) => {
+        return new SCons(current, accumulator);
+      }, null);
+      frame.set(this.restParam, restList);
     }
     return this.expr(frame);
   }
@@ -601,13 +609,26 @@ function analyzeApplication(sexp: SCons): (frame: Frame) => SchemeType {
   };
 }
 
+// Sexp is of the form (arg1 arg2 ... argn [ . rest ])
+function getLambdaArgs(sexpArgs: SCons): [string[], string | null] {
+  let args = [];
+  let rest = null;
+  let sexp: SchemeType = sexpArgs;
+  while (sexp != null) {
+    if (sexp instanceof SCons) {
+      args.push(safeId(sexp.car).id);
+      sexp = sexp.cdr;
+    } else {
+      rest = safeId(sexp).id;
+      break;
+    }
+  }
+  return [args, rest];
+}
+
 // Assumes sexp is of the form ((arg1 arg2 ...) body)
 function analyzeLambda(sexp: SCons): (frame: Frame) => SchemeType {
-  const paramsSexps = [...(sexp.car as SCons)];
-  const paramNames = paramsSexps.map((param) => {
-    if (param instanceof SchemeId) return param.id;
-    else throw new Error("Parameter must be an identifier");
-  });
+  let [paramNames, restName] = getLambdaArgs(sexp.car as SCons);
 
   const body = sexp.cdr as SCons;
 
@@ -615,7 +636,7 @@ function analyzeLambda(sexp: SCons): (frame: Frame) => SchemeType {
   const bodyFunc = analyzeBody(body);
 
   return (frame: Frame) => {
-    const closure = new SchemeClosure(paramNames, bodyFunc, frame);
+    const closure = new SchemeClosure(paramNames, restName, bodyFunc, frame);
     return closure;
   };
 }
@@ -699,6 +720,7 @@ function initEnv(): Frame {
       return args[0].cdr;
     }),
   );
+
   return env;
 }
 
