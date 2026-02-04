@@ -644,6 +644,8 @@ function analyzeSexp(sexp: SchemeType): (frame: Frame) => SchemeType {
       return analyzeDefine(sexp.cdr as SCons);
     } else if (carIsId(sexp, "or")) {
       return analyzeOr(sexp.cdr);
+    } else if (carIsId(sexp, "and")) {
+      return analyzeAnd(sexp.cdr);
     } else if (carIsId(sexp, "define-macro")) {
       throw new Error("define-macro not implemented");
     } else {
@@ -734,6 +736,21 @@ function analyzeOr(sexp: SchemeType): (frame: Frame) => SchemeType {
     for (const form of forms) {
       result = form(frame);
       if (result !== false) return result;
+    }
+    return result;
+  };
+}
+
+function analyzeAnd(sexp: SchemeType): (frame: Frame) => SchemeType {
+  if (sexp === null) {
+    return () => true;
+  }
+  const forms = [...(sexp as SCons)].map(analyzeSexp);
+  return (frame: Frame) => {
+    let result: SchemeType = true;
+    for (const form of forms) {
+      result = form(frame);
+      if (result === false) return false;
     }
     return result;
   };
