@@ -835,16 +835,24 @@ function initEnv(): Frame {
   env.set(
     "<",
     new SchemeBuiltin((args) => {
-      if (args.length !== 2) throw new Error("<: Expected two arguments.");
-      return (args[0] as number) < (args[1] as number);
+      if (args.length < 2)
+        throw new Error("<: Expected at least two arguments.");
+      for (let i = 1; i < args.length; i++) {
+        if (!((args[i - 1] as number) < (args[i] as number))) return false;
+      }
+      return true;
     }),
   );
 
   env.set(
     ">",
     new SchemeBuiltin((args) => {
-      if (args.length !== 2) throw new Error(">: Expected two arguments.");
-      return (args[0] as number) > (args[1] as number);
+      if (args.length < 2)
+        throw new Error(">: Expected at least two arguments.");
+      for (let i = 1; i < args.length; i++) {
+        if (!((args[i - 1] as number) > (args[i] as number))) return false;
+      }
+      return true;
     }),
   );
 
