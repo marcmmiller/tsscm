@@ -826,6 +826,22 @@ function initEnv(): Frame {
     }),
   );
 
+  env.set(
+    "<",
+    new SchemeBuiltin((args) => {
+      if (args.length !== 2) throw new Error("<: Expected two arguments.");
+      return (args[0] as number) < (args[1] as number);
+    }),
+  );
+
+  env.set(
+    ">",
+    new SchemeBuiltin((args) => {
+      if (args.length !== 2) throw new Error(">: Expected two arguments.");
+      return (args[0] as number) > (args[1] as number);
+    }),
+  );
+
   return env;
 }
 
