@@ -3,6 +3,7 @@ import { Readable } from "stream";
 // Token types
 export enum TokenType {
   Number = "Number",
+  String = "String",
   Identifier = "Identifier",
   LeftParen = "LeftParen",
   RightParen = "RightParen",
@@ -13,6 +14,7 @@ export enum TokenType {
 
 export type Token =
   | { type: TokenType.Number; value: number }
+  | { type: TokenType.String; value: string }
   | { type: TokenType.Identifier; value: string }
   | { type: TokenType.LeftParen }
   | { type: TokenType.RightParen }
@@ -158,6 +160,60 @@ export class Lexer {
     return { type: TokenType.Identifier, value: identifier };
   }
 
+  private async readString(): Promise<Token> {
+    let str = "";
+
+    while (this.currentChar !== null && this.currentChar !== '"') {
+      if (this.currentChar === "\\") {
+        await this.advance();
+        if (this.currentChar === null) {
+          throw new Error("Unexpected end of input in string escape sequence");
+        }
+        switch (this.currentChar) {
+          case "n":
+            str += "\n";
+            break;
+          case "t":
+            str += "\t";
+            break;
+          case "r":
+            str += "\r";
+            break;
+          case "\\":
+            str += "\\";
+            break;
+          case '"':
+            str += '"';
+            break;
+          case "0":
+            str += "\0";
+            break;
+          case "b":
+            str += "\b";
+            break;
+          case "f":
+            str += "\f";
+            break;
+          case "v":
+            str += "\v";
+            break;
+          default:
+            throw new Error(`Unknown escape sequence: \\${this.currentChar}`);
+        }
+      } else {
+        str += this.currentChar;
+      }
+      await this.advance();
+    }
+
+    if (this.currentChar === null) {
+      throw new Error("Unterminated string literal");
+    }
+
+    await this.advance(); // consume closing "
+    return { type: TokenType.String, value: str };
+  }
+
   private async readNextToken(): Promise<Token> {
     await this.ensureInitialized();
     await this.skipWhitespace();
@@ -193,6 +249,8 @@ export class Lexer {
         return { type: TokenType.Dot };
       case "'":
         return { type: TokenType.Quote };
+      case '"':
+        return this.readString();
       default:
         throw new Error(`Unexpected character: ${char}`);
     }
@@ -221,7 +279,11 @@ export class Lexer {
 
 // Helper to print a token
 function printToken(token: Token): void {
-  if (token.type === TokenType.Number || token.type === TokenType.Identifier) {
+  if (
+    token.type === TokenType.Number ||
+    token.type === TokenType.Identifier ||
+    token.type === TokenType.String
+  ) {
     console.log(`Token: ${token.type}(${token.value})`);
   } else {
     console.log(`Token: ${token.type}`);
@@ -435,6 +497,8 @@ export class SchemeParser {
     const token = await this.lexer.next();
 
     if (token.type === TokenType.Number) {
+      return token.value;
+    } else if (token.type === TokenType.String) {
       return token.value;
     } else if (token.type === TokenType.Identifier) {
       return new SchemeId(token.value);
@@ -723,7 +787,13 @@ function initEnv(): Frame {
   env.set(
     "log",
     new SchemeBuiltin((args) => {
-      const argsStr = args.map(sexpToStr);
+      const argsStr = args.map((sexp) => {
+        if (typeof sexp === "string") {
+          return sexp;
+        } else {
+          return sexpToStr(sexp);
+        }
+      });
       console.log(...argsStr);
       return true;
     }),
