@@ -720,6 +720,13 @@ function initEnv(): Frame {
       return args[0].cdr;
     }),
   );
+  env.set(
+    "log",
+    new SchemeBuiltin((args) => {
+      console.log(...args);
+      return null;
+    }),
+  );
 
   return env;
 }
