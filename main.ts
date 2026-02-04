@@ -723,8 +723,9 @@ function initEnv(): Frame {
   env.set(
     "log",
     new SchemeBuiltin((args) => {
-      console.log(...args);
-      return null;
+      const argsStr = args.map(sexpToStr);
+      console.log(...argsStr);
+      return true;
     }),
   );
 
