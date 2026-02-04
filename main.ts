@@ -813,6 +813,17 @@ function initEnv(): Frame {
     }),
   );
 
+  env.set(
+    "eq?",
+    new SchemeBuiltin((args) => {
+      if (args.length !== 2) throw new Error("eq?: Expected two arguments.");
+      const [a, b] = args;
+      if (a === b) return true;
+      if (a instanceof SchemeId && b instanceof SchemeId) return a.id === b.id;
+      return false;
+    }),
+  );
+
   return env;
 }
 
