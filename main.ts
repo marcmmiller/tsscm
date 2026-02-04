@@ -642,6 +642,8 @@ function analyzeSexp(sexp: SchemeType): (frame: Frame) => SchemeType {
       return analyzeLambda(sexp.cdr as SCons);
     } else if (carIsId(sexp, "define")) {
       return analyzeDefine(sexp.cdr as SCons);
+    } else if (carIsId(sexp, "or")) {
+      return analyzeOr(sexp.cdr);
     } else if (carIsId(sexp, "define-macro")) {
       throw new Error("define-macro not implemented");
     } else {
@@ -722,6 +724,21 @@ function analyzeLambda(sexp: SCons): (frame: Frame) => SchemeType {
 }
 
 // sexp is of the form (expr1 expr2 ...)
+function analyzeOr(sexp: SchemeType): (frame: Frame) => SchemeType {
+  if (sexp === null) {
+    return () => false;
+  }
+  const forms = [...(sexp as SCons)].map(analyzeSexp);
+  return (frame: Frame) => {
+    let result: SchemeType = false;
+    for (const form of forms) {
+      result = form(frame);
+      if (result !== false) return result;
+    }
+    return result;
+  };
+}
+
 function analyzeBody(sexp: SCons): (frame: Frame) => SchemeType {
   const bodySexps = [...sexp];
 
