@@ -153,7 +153,7 @@ export class Lexer {
     // Identifier can contain: letters, digits, underscore, math operators (+, -, *, /), comparisons (<, >), and equals (=)
     while (
       this.currentChar !== null &&
-      /[a-zA-Z0-9_+\-*/<>=]/.test(this.currentChar)
+      /[a-zA-Z0-9_+\-*/<>=?]/.test(this.currentChar)
     ) {
       identifier += this.currentChar;
       await this.advance();
@@ -230,7 +230,7 @@ export class Lexer {
     }
 
     // Identifiers (can start with letter, underscore, math operator, comparison, or equals)
-    if (/[a-zA-Z_+\-*/<>=]/.test(this.currentChar)) {
+    if (/[a-zA-Z_+\-*/<>=?]/.test(this.currentChar)) {
       return this.readIdentifier();
     }
 
