@@ -396,20 +396,20 @@ function printListTail(sexp: SchemeType): string {
   } else if (sexp instanceof SCons) {
     const rest = printListTail(sexp.cdr);
     if (rest === "") {
-      return " " + printSexp(sexp.car);
+      return " " + sexpToStr(sexp.car);
     } else {
-      return " " + printSexp(sexp.car) + rest;
+      return " " + sexpToStr(sexp.car) + rest;
     }
   } else {
-    return " . " + printSexp(sexp);
+    return " . " + sexpToStr(sexp);
   }
 }
 
-function printSexp(sexp: SchemeType): string {
+function sexpToStr(sexp: SchemeType): string {
   if (sexp instanceof SchemeId) {
     return sexp.id;
   } else if (sexp instanceof SCons) {
-    return "(" + printSexp(sexp.car) + printListTail(sexp.cdr) + ")";
+    return "(" + sexpToStr(sexp.car) + printListTail(sexp.cdr) + ")";
   } else if (typeof sexp === "number") {
     return sexp.toString();
   } else if (typeof sexp === "string") {
@@ -744,7 +744,7 @@ async function main(): Promise<void> {
 
       const result = await parser.parse();
       const analyzed = analyzeSexp(result);
-      console.log(printSexp(analyzed(env)));
+      console.log(sexpToStr(analyzed(env)));
     }
   } catch (error) {
     console.error(`Error: ${error instanceof Error ? error.message : error}`);
