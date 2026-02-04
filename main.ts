@@ -4,6 +4,7 @@ import { Readable } from "stream";
 export enum TokenType {
   Number = "Number",
   String = "String",
+  Boolean = "Boolean",
   Identifier = "Identifier",
   LeftParen = "LeftParen",
   RightParen = "RightParen",
@@ -15,6 +16,7 @@ export enum TokenType {
 export type Token =
   | { type: TokenType.Number; value: number }
   | { type: TokenType.String; value: string }
+  | { type: TokenType.Boolean; value: boolean }
   | { type: TokenType.Identifier; value: string }
   | { type: TokenType.LeftParen }
   | { type: TokenType.RightParen }
@@ -251,6 +253,15 @@ export class Lexer {
         return { type: TokenType.Quote };
       case '"':
         return this.readString();
+      case "#":
+        if (this.currentChar === "t") {
+          await this.advance();
+          return { type: TokenType.Boolean, value: true };
+        } else if (this.currentChar === "f") {
+          await this.advance();
+          return { type: TokenType.Boolean, value: false };
+        }
+        throw new Error(`Unexpected character after #: ${this.currentChar}`);
       default:
         throw new Error(`Unexpected character: ${char}`);
     }
@@ -282,7 +293,8 @@ function printToken(token: Token): void {
   if (
     token.type === TokenType.Number ||
     token.type === TokenType.Identifier ||
-    token.type === TokenType.String
+    token.type === TokenType.String ||
+    token.type === TokenType.Boolean
   ) {
     console.log(`Token: ${token.type}(${token.value})`);
   } else {
@@ -499,6 +511,8 @@ export class SchemeParser {
     if (token.type === TokenType.Number) {
       return token.value;
     } else if (token.type === TokenType.String) {
+      return token.value;
+    } else if (token.type === TokenType.Boolean) {
       return token.value;
     } else if (token.type === TokenType.Identifier) {
       return new SchemeId(token.value);
