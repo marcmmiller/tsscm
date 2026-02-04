@@ -818,11 +818,17 @@ function initEnv(): Frame {
   env.set(
     "eq?",
     new SchemeBuiltin((args) => {
-      if (args.length !== 2) throw new Error("eq?: Expected two arguments.");
-      const [a, b] = args;
-      if (a === b) return true;
-      if (a instanceof SchemeId && b instanceof SchemeId) return a.id === b.id;
-      return false;
+      if (args.length < 2)
+        throw new Error("eq?: Expected at least two arguments.");
+      for (let i = 1; i < args.length; i++) {
+        const a = args[i - 1];
+        const b = args[i];
+        if (a === b) continue;
+        if (a instanceof SchemeId && b instanceof SchemeId && a.id === b.id)
+          continue;
+        return false;
+      }
+      return true;
     }),
   );
 
