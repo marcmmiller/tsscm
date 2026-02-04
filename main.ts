@@ -494,6 +494,8 @@ function sexpToStr(sexp: SchemeType): string {
     return "()";
   } else if (sexp instanceof SchemeClosure) {
     return "#<closure>";
+  } else if (sexp instanceof SchemeBuiltin) {
+    return "#<builtin>";
   } else {
     throw new Error(`Unexpected type B: ${typeof sexp}`);
   }
