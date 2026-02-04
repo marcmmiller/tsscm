@@ -856,6 +856,22 @@ function initEnv(): Frame {
     }),
   );
 
+  env.set(
+    "null?",
+    new SchemeBuiltin((args) => {
+      if (args.length !== 1) throw new Error("null?: Expected one argument.");
+      return args[0] === null;
+    }),
+  );
+
+  env.set(
+    "list?",
+    new SchemeBuiltin((args) => {
+      if (args.length !== 1) throw new Error("list?: Expected one argument.");
+      return args[0] instanceof SCons;
+    }),
+  );
+
   return env;
 }
 
