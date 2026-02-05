@@ -679,7 +679,11 @@ function analyzeDefine(sexp: SCons): (frame: Frame) => SchemeType {
 
 function analyzeApplication(sexp: SCons): (frame: Frame) => SchemeType {
   const operator = analyzeSexp(sexp.car);
-  const operands = [...(sexp.cdr as SCons)].map(analyzeSexp);
+  let operands: ((frame: Frame) => SchemeType)[] = [];
+
+  if (sexp.cdr instanceof SCons) {
+    operands = [...(sexp.cdr as SCons)].map(analyzeSexp);
+  }
 
   return (frame: Frame) => {
     const func = operator(frame);
