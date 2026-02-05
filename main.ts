@@ -121,8 +121,16 @@ export class Lexer {
   }
 
   private async skipWhitespace(): Promise<void> {
-    while (this.currentChar !== null && /\s/.test(this.currentChar)) {
-      await this.advance();
+    while (this.currentChar !== null) {
+      if (/\s/.test(this.currentChar)) {
+        await this.advance();
+      } else if (this.currentChar === ";") {
+        while (this.currentChar !== null && this.currentChar !== "\n") {
+          await this.advance();
+        }
+      } else {
+        break;
+      }
     }
   }
 
@@ -665,9 +673,9 @@ function carIsId(sexp: SchemeType, id: string): boolean {
 function analyzeSexp(sexp: SchemeType): (frame: Frame) => SchemeType {
   if (sexp instanceof SchemeId) {
     return (frame: Frame) => {
-      const value = frame.lookup(sexp.id);
-      if (value === null) throw new Error(`Unbound variable: ${sexp.id}`);
-      return value;
+      if (frame.findFrame(sexp.id) === null)
+        throw new Error(`Unbound variable: ${sexp.id}`);
+      return frame.lookup(sexp.id);
     };
   } else if (
     typeof sexp === "number" ||
@@ -983,6 +991,31 @@ function initEnv(): Frame {
     new SchemeBuiltin((args) => {
       if (args.length !== 1) throw new Error("list?: Expected one argument.");
       return args[0] instanceof SCons;
+    }),
+  );
+
+  env.set(
+    "apply",
+    new SchemeBuiltin((args) => {
+      if (args.length < 2)
+        throw new Error("apply: Expected at least two arguments.");
+      const func = args[0];
+      const lastArg = args[args.length - 1];
+      // Collect intermediate args and spread the final list
+      const intermediate = args.slice(1, -1);
+      const finalArgs: SchemeType[] = [...intermediate];
+      let current = lastArg;
+      while (current instanceof SCons) {
+        finalArgs.push(current.car);
+        current = current.cdr;
+      }
+      if (func instanceof SchemeBuiltin) {
+        return func.eval(finalArgs);
+      } else if (func instanceof SchemeClosure) {
+        return func.eval(finalArgs);
+      } else {
+        throw new Error("apply: First argument must be a function.");
+      }
     }),
   );
 
