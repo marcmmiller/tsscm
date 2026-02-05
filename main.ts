@@ -171,7 +171,8 @@ export class Lexer {
         if (this.currentChar === null) {
           throw new Error("Unexpected end of input in string escape sequence");
         }
-        switch (this.currentChar) {
+        const escaped: string = this.currentChar;
+        switch (escaped) {
           case "n":
             str += "\n";
             break;
@@ -617,6 +618,39 @@ class Frame {
 //
 const macros = new Map<string, SchemeType>();
 
+function expandMacrosSexp(sexp: SchemeType): [SchemeType, boolean] {
+  if (!(sexp instanceof SCons)) {
+    return [sexp, false];
+  }
+
+  // Check if this is a macro invocation
+  if (sexp.car instanceof SchemeId && macros.has(sexp.car.id)) {
+    const transformer = macros.get(sexp.car.id)!;
+    if (transformer instanceof SchemeClosure) {
+      const args = sexp.cdr === null ? [] : [...(sexp.cdr as SCons)];
+      return [transformer.eval(args), true];
+    }
+  }
+
+  // Recursively expand car and cdr
+  const [newCar, carChanged] = expandMacrosSexp(sexp.car);
+  const [newCdr, cdrChanged] = expandMacrosSexp(sexp.cdr);
+  if (carChanged || cdrChanged) {
+    return [new SCons(newCar, newCdr), true];
+  }
+  return [sexp, false];
+}
+
+function expandMacros(sexp: SchemeType): SchemeType {
+  let current = sexp;
+  while (true) {
+    const [expanded, changed] = expandMacrosSexp(current);
+    if (!changed) return current;
+    console.log("macro expansion:", sexpToStr(expanded));
+    current = expanded;
+  }
+}
+
 function carIsId(sexp: SchemeType, id: string): boolean {
   return (
     sexp instanceof SCons && sexp.car instanceof SchemeId && sexp.car.id === id
@@ -962,7 +996,8 @@ async function main(): Promise<void> {
       if (token.type === TokenType.EOF) break;
 
       const result = await parser.parse();
-      const analyzed = analyzeSexp(result);
+      const expanded = expandMacros(result);
+      const analyzed = analyzeSexp(expanded);
       console.log(sexpToStr(analyzed(env)));
     }
   } catch (error) {
