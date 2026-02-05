@@ -623,6 +623,11 @@ function expandMacrosSexp(sexp: SchemeType): [SchemeType, boolean] {
     return [sexp, false];
   }
 
+  // Don't expand inside quoted forms
+  if (sexp.car instanceof SchemeId && sexp.car.id === "quote") {
+    return [sexp, false];
+  }
+
   // Check if this is a macro invocation
   if (sexp.car instanceof SchemeId && macros.has(sexp.car.id)) {
     const transformer = macros.get(sexp.car.id)!;
@@ -813,7 +818,7 @@ function analyzeIf(sexp: SCons): (frame: Frame) => SchemeType {
   const condition = analyzeSexp(sexp.car);
   const consequent = analyzeSexp(safeCar(sexp.cdr));
   const altSexp = safeCdr(sexp.cdr);
-  const alternative = altSexp !== null ? analyzeSexp(safeCar(altSexp)) : null;
+  const alternative = altSexp !== null ? analyzeBody(altSexp as SCons) : null;
   return (frame: Frame) => {
     if (condition(frame) !== false) {
       return consequent(frame);
