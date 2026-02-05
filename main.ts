@@ -646,6 +646,8 @@ function analyzeSexp(sexp: SchemeType): (frame: Frame) => SchemeType {
       return analyzeOr(sexp.cdr);
     } else if (carIsId(sexp, "and")) {
       return analyzeAnd(sexp.cdr);
+    } else if (carIsId(sexp, "if")) {
+      return analyzeIf(sexp.cdr as SCons);
     } else if (carIsId(sexp, "define-macro")) {
       throw new Error("define-macro not implemented");
     } else {
@@ -753,6 +755,20 @@ function analyzeAnd(sexp: SchemeType): (frame: Frame) => SchemeType {
       if (result === false) return false;
     }
     return result;
+  };
+}
+
+function analyzeIf(sexp: SCons): (frame: Frame) => SchemeType {
+  const condition = analyzeSexp(sexp.car);
+  const consequent = analyzeSexp(safeCar(sexp.cdr));
+  const altSexp = safeCdr(sexp.cdr);
+  const alternative = altSexp !== null ? analyzeSexp(safeCar(altSexp)) : null;
+  return (frame: Frame) => {
+    if (condition(frame) !== false) {
+      return consequent(frame);
+    } else {
+      return alternative !== null ? alternative(frame) : false;
+    }
   };
 }
 
