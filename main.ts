@@ -615,6 +615,8 @@ class Frame {
 //
 // Scheme Analyzer
 //
+const macros = new Map<string, SchemeType>();
+
 function carIsId(sexp: SchemeType, id: string): boolean {
   return (
     sexp instanceof SCons && sexp.car instanceof SchemeId && sexp.car.id === id
@@ -649,7 +651,7 @@ function analyzeSexp(sexp: SchemeType): (frame: Frame) => SchemeType {
     } else if (carIsId(sexp, "if")) {
       return analyzeIf(sexp.cdr as SCons);
     } else if (carIsId(sexp, "define-macro")) {
-      throw new Error("define-macro not implemented");
+      return analyzeDefineMacro(sexp.cdr as SCons);
     } else {
       return analyzeApplication(sexp);
     }
@@ -673,6 +675,17 @@ function analyzeDefine(sexp: SCons): (frame: Frame) => SchemeType {
   }
   return (frame: Frame) => {
     frame.set(id, val(frame));
+    return new SchemeId(id);
+  };
+}
+
+function analyzeDefineMacro(sexp: SCons): (frame: Frame) => SchemeType {
+  // sexp is ((name args...) body...)
+  const id = safeId(safeCar(sexp.car)).id;
+  const lambdaSexp = new SCons(safeCdr(sexp.car), sexp.cdr);
+  const val = analyzeLambda(lambdaSexp);
+  return (frame: Frame) => {
+    macros.set(id, val(frame));
     return new SchemeId(id);
   };
 }
