@@ -63,6 +63,10 @@
                  (apply map func (map1 cdr lists)))))
      (cons list1 more-lists))))
 
+(define (length lst)
+  (if (null? lst) 0
+      (+ 1 (length (cdr lst)))))
+
 (define (append l m)
   (if (null? l) m
       (cons (car l) (append (cdr l) m))))
