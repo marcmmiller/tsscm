@@ -951,6 +951,23 @@ function initEnv(): Frame {
   );
 
   env.set(
+    "eqv?",
+    new SchemeBuiltin((args) => {
+      if (args.length < 2)
+        throw new Error("eqv?: Expected at least two arguments.");
+      for (let i = 1; i < args.length; i++) {
+        const a = args[i - 1];
+        const b = args[i];
+        if (a === b) continue;
+        if (a instanceof SchemeId && b instanceof SchemeId && a.id === b.id)
+          continue;
+        return false;
+      }
+      return true;
+    }),
+  );
+
+  env.set(
     "<",
     new SchemeBuiltin((args) => {
       if (args.length < 2)
