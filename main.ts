@@ -889,6 +889,7 @@ function initEnv(): Frame {
         .reduce((acc, val) => (acc as number) / (val as number), args[0]),
     ),
   );
+
   env.set(
     "cons",
     new SchemeBuiltin((args) => {
@@ -896,6 +897,7 @@ function initEnv(): Frame {
       return new SCons(args[0], args[1]);
     }),
   );
+
   env.set(
     "car",
     new SchemeBuiltin((args) => {
@@ -905,6 +907,7 @@ function initEnv(): Frame {
       return args[0].car;
     }),
   );
+
   env.set(
     "cdr",
     new SchemeBuiltin((args) => {
@@ -914,6 +917,7 @@ function initEnv(): Frame {
       return args[0].cdr;
     }),
   );
+
   env.set(
     "log",
     new SchemeBuiltin((args) => {
@@ -991,6 +995,14 @@ function initEnv(): Frame {
     new SchemeBuiltin((args) => {
       if (args.length !== 1) throw new Error("list?: Expected one argument.");
       return args[0] instanceof SCons;
+    }),
+  );
+
+  env.set(
+    "symbol?",
+    new SchemeBuiltin((args) => {
+      if (args.length !== 1) throw new Error("symbol?: Expected one argument.");
+      return args[0] instanceof SchemeId;
     }),
   );
 
