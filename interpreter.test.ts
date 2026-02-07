@@ -2,7 +2,8 @@ import assert from "assert";
 import { InputStream, Lexer, TokenType } from "./lexer";
 import { SchemeParser } from "./parser";
 import { SchemeId, SCons, SchemeType, Frame } from "./types";
-import { SchemeAnalyzer, initEnv, sexpToStr } from "./main";
+import { SchemeAnalyzer, sexpToStr } from "./analyzer";
+import { initEnv } from "./main";
 
 // Test utilities
 async function evaluate(input: string, env?: Frame): Promise<SchemeType> {
