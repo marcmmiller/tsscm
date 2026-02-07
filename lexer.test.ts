@@ -1,5 +1,5 @@
 import assert from "assert";
-import { TokenType, Token, InputStream, Lexer } from "./main";
+import { TokenType, Token, InputStream, Lexer } from "./lexer";
 
 // Test utilities
 async function tokenize(input: string): Promise<Token[]> {
