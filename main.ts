@@ -624,230 +624,233 @@ class Frame {
 //
 // Scheme Analyzer
 //
-const macros = new Map<string, SchemeType>();
-
-function expandMacrosSexp(sexp: SchemeType): [SchemeType, boolean] {
-  if (!(sexp instanceof SCons)) {
-    return [sexp, false];
-  }
-
-  // Don't expand inside quoted forms
-  if (sexp.car instanceof SchemeId && sexp.car.id === "quote") {
-    return [sexp, false];
-  }
-
-  // Check if this is a macro invocation
-  if (sexp.car instanceof SchemeId && macros.has(sexp.car.id)) {
-    const transformer = macros.get(sexp.car.id)!;
-    if (transformer instanceof SchemeClosure) {
-      const args = sexp.cdr === null ? [] : [...(sexp.cdr as SCons)];
-      return [transformer.eval(args), true];
-    }
-  }
-
-  // Recursively expand car and cdr
-  const [newCar, carChanged] = expandMacrosSexp(sexp.car);
-  const [newCdr, cdrChanged] = expandMacrosSexp(sexp.cdr);
-  if (carChanged || cdrChanged) {
-    return [new SCons(newCar, newCdr), true];
-  }
-  return [sexp, false];
-}
-
-function expandMacros(sexp: SchemeType): SchemeType {
-  let current = sexp;
-  while (true) {
-    const [expanded, changed] = expandMacrosSexp(current);
-    if (!changed) return current;
-    console.log("macro expansion:", sexpToStr(expanded));
-    current = expanded;
-  }
-}
-
 function carIsId(sexp: SchemeType, id: string): boolean {
   return (
     sexp instanceof SCons && sexp.car instanceof SchemeId && sexp.car.id === id
   );
 }
 
-function analyzeSexp(sexp: SchemeType): (frame: Frame) => SchemeType {
-  if (sexp instanceof SchemeId) {
+class SchemeAnalyzer {
+  private macros = new Map<string, SchemeType>();
+
+  private expandMacrosSexp(sexp: SchemeType): [SchemeType, boolean] {
+    if (!(sexp instanceof SCons)) {
+      return [sexp, false];
+    }
+
+    // Don't expand inside quoted forms
+    if (sexp.car instanceof SchemeId && sexp.car.id === "quote") {
+      return [sexp, false];
+    }
+
+    // Check if this is a macro invocation
+    if (sexp.car instanceof SchemeId && this.macros.has(sexp.car.id)) {
+      const transformer = this.macros.get(sexp.car.id)!;
+      if (transformer instanceof SchemeClosure) {
+        const args = sexp.cdr === null ? [] : [...(sexp.cdr as SCons)];
+        return [transformer.eval(args), true];
+      }
+    }
+
+    // Recursively expand car and cdr
+    const [newCar, carChanged] = this.expandMacrosSexp(sexp.car);
+    const [newCdr, cdrChanged] = this.expandMacrosSexp(sexp.cdr);
+    if (carChanged || cdrChanged) {
+      return [new SCons(newCar, newCdr), true];
+    }
+    return [sexp, false];
+  }
+
+  expandMacros(sexp: SchemeType): SchemeType {
+    let current = sexp;
+    while (true) {
+      const [expanded, changed] = this.expandMacrosSexp(current);
+      if (!changed) return current;
+      console.log("macro expansion:", sexpToStr(expanded));
+      current = expanded;
+    }
+  }
+
+  analyzeSexp(sexp: SchemeType): (frame: Frame) => SchemeType {
+    if (sexp instanceof SchemeId) {
+      return (frame: Frame) => {
+        if (frame.findFrame(sexp.id) === null)
+          throw new Error(`Unbound variable: ${sexp.id}`);
+        return frame.lookup(sexp.id);
+      };
+    } else if (
+      typeof sexp === "number" ||
+      typeof sexp === "string" ||
+      typeof sexp === "boolean" ||
+      sexp === null
+    ) {
+      return (frame: Frame) => sexp;
+    } else if (sexp instanceof SCons) {
+      if (carIsId(sexp, "quote")) {
+        return (frame: Frame) => (sexp.cdr as SCons).car;
+      } else if (carIsId(sexp, "lambda")) {
+        return this.analyzeLambda(sexp.cdr as SCons);
+      } else if (carIsId(sexp, "define")) {
+        return this.analyzeDefine(sexp.cdr as SCons);
+      } else if (carIsId(sexp, "or")) {
+        return this.analyzeOr(sexp.cdr);
+      } else if (carIsId(sexp, "and")) {
+        return this.analyzeAnd(sexp.cdr);
+      } else if (carIsId(sexp, "if")) {
+        return this.analyzeIf(sexp.cdr as SCons);
+      } else if (carIsId(sexp, "define-macro")) {
+        return this.analyzeDefineMacro(sexp.cdr as SCons);
+      } else {
+        return this.analyzeApplication(sexp);
+      }
+    } else {
+      console.log("Unexpected type A:", typeof sexp);
+      throw new Error(`Unexpected type: ${typeof sexp}`);
+    }
+  }
+
+  private analyzeDefine(sexp: SCons): (frame: Frame) => SchemeType {
+    let id: string;
+    let val: (frame: Frame) => SchemeType;
+    if (sexp.car instanceof SCons) {
+      // sexp is like ((funcname arg1 arg2) body)
+      id = safeId(safeCar(sexp.car)).id;
+      const lambdaSexp = new SCons(safeCdr(sexp.car), sexp.cdr);
+      val = this.analyzeLambda(lambdaSexp);
+    } else {
+      id = safeId(sexp.car).id;
+      val = this.analyzeSexp(safeCar(sexp.cdr));
+    }
     return (frame: Frame) => {
-      if (frame.findFrame(sexp.id) === null)
-        throw new Error(`Unbound variable: ${sexp.id}`);
-      return frame.lookup(sexp.id);
+      frame.set(id, val(frame));
+      return new SchemeId(id);
     };
-  } else if (
-    typeof sexp === "number" ||
-    typeof sexp === "string" ||
-    typeof sexp === "boolean" ||
-    sexp === null
-  ) {
-    return (frame: Frame) => sexp;
-  } else if (sexp instanceof SCons) {
-    if (carIsId(sexp, "quote")) {
-      return (frame: Frame) => (sexp.cdr as SCons).car;
-    } else if (carIsId(sexp, "lambda")) {
-      return analyzeLambda(sexp.cdr as SCons);
-    } else if (carIsId(sexp, "define")) {
-      return analyzeDefine(sexp.cdr as SCons);
-    } else if (carIsId(sexp, "or")) {
-      return analyzeOr(sexp.cdr);
-    } else if (carIsId(sexp, "and")) {
-      return analyzeAnd(sexp.cdr);
-    } else if (carIsId(sexp, "if")) {
-      return analyzeIf(sexp.cdr as SCons);
-    } else if (carIsId(sexp, "define-macro")) {
-      return analyzeDefineMacro(sexp.cdr as SCons);
-    } else {
-      return analyzeApplication(sexp);
-    }
-  } else {
-    console.log("Unexpected type A:", typeof sexp);
-    throw new Error(`Unexpected type: ${typeof sexp}`);
   }
-}
 
-function analyzeDefine(sexp: SCons): (frame: Frame) => SchemeType {
-  let id: string;
-  let val: (frame: Frame) => SchemeType;
-  if (sexp.car instanceof SCons) {
-    // sexp is like ((funcname arg1 arg2) body)
-    id = safeId(safeCar(sexp.car)).id;
+  private analyzeDefineMacro(sexp: SCons): (frame: Frame) => SchemeType {
+    // sexp is ((name args...) body...)
+    const id = safeId(safeCar(sexp.car)).id;
     const lambdaSexp = new SCons(safeCdr(sexp.car), sexp.cdr);
-    val = analyzeLambda(lambdaSexp);
-  } else {
-    id = safeId(sexp.car).id;
-    val = analyzeSexp(safeCar(sexp.cdr));
-  }
-  return (frame: Frame) => {
-    frame.set(id, val(frame));
-    return new SchemeId(id);
-  };
-}
-
-function analyzeDefineMacro(sexp: SCons): (frame: Frame) => SchemeType {
-  // sexp is ((name args...) body...)
-  const id = safeId(safeCar(sexp.car)).id;
-  const lambdaSexp = new SCons(safeCdr(sexp.car), sexp.cdr);
-  const val = analyzeLambda(lambdaSexp);
-  return (frame: Frame) => {
-    macros.set(id, val(frame));
-    return new SchemeId(id);
-  };
-}
-
-function analyzeApplication(sexp: SCons): (frame: Frame) => SchemeType {
-  const operator = analyzeSexp(sexp.car);
-  let operands: ((frame: Frame) => SchemeType)[] = [];
-
-  if (sexp.cdr instanceof SCons) {
-    operands = [...(sexp.cdr as SCons)].map(analyzeSexp);
+    const val = this.analyzeLambda(lambdaSexp);
+    return (frame: Frame) => {
+      this.macros.set(id, val(frame));
+      return new SchemeId(id);
+    };
   }
 
-  return (frame: Frame) => {
-    const func = operator(frame);
-    if (func instanceof SchemeBuiltin) {
-      const args = operands.map((operand) => operand(frame));
-      return func.eval(args);
-    } else if (func instanceof SchemeClosure) {
-      const args = operands.map((operand) => operand(frame));
-      return func.eval(args);
-    } else {
-      throw new Error(`Not a function: ${func}`);
-    }
-  };
-}
+  private analyzeApplication(sexp: SCons): (frame: Frame) => SchemeType {
+    const operator = this.analyzeSexp(sexp.car);
+    let operands: ((frame: Frame) => SchemeType)[] = [];
 
-// Sexp is of the form (arg1 arg2 ... argn [ . rest ])
-function getLambdaArgs(sexpArgs: SCons): [string[], string | null] {
-  let args = [];
-  let rest = null;
-  let sexp: SchemeType = sexpArgs;
-  while (sexp != null) {
-    if (sexp instanceof SCons) {
-      args.push(safeId(sexp.car).id);
-      sexp = sexp.cdr;
-    } else {
-      rest = safeId(sexp).id;
-      break;
+    if (sexp.cdr instanceof SCons) {
+      operands = [...(sexp.cdr as SCons)].map((s) => this.analyzeSexp(s));
     }
+
+    return (frame: Frame) => {
+      const func = operator(frame);
+      if (func instanceof SchemeBuiltin) {
+        const args = operands.map((operand) => operand(frame));
+        return func.eval(args);
+      } else if (func instanceof SchemeClosure) {
+        const args = operands.map((operand) => operand(frame));
+        return func.eval(args);
+      } else {
+        throw new Error(`Not a function: ${func}`);
+      }
+    };
   }
-  return [args, rest];
-}
 
-// Assumes sexp is of the form ((arg1 arg2 ...) body)
-function analyzeLambda(sexp: SCons): (frame: Frame) => SchemeType {
-  let [paramNames, restName] = getLambdaArgs(sexp.car as SCons);
-
-  const body = sexp.cdr as SCons;
-
-  // Assumes body is of the form (expr1 expr2 ...))
-  const bodyFunc = analyzeBody(body);
-
-  return (frame: Frame) => {
-    const closure = new SchemeClosure(paramNames, restName, bodyFunc, frame);
-    return closure;
-  };
-}
-
-// sexp is of the form (expr1 expr2 ...)
-function analyzeOr(sexp: SchemeType): (frame: Frame) => SchemeType {
-  if (sexp === null) {
-    return () => false;
+  // Sexp is of the form (arg1 arg2 ... argn [ . rest ])
+  private getLambdaArgs(sexpArgs: SCons): [string[], string | null] {
+    let args = [];
+    let rest = null;
+    let sexp: SchemeType = sexpArgs;
+    while (sexp != null) {
+      if (sexp instanceof SCons) {
+        args.push(safeId(sexp.car).id);
+        sexp = sexp.cdr;
+      } else {
+        rest = safeId(sexp).id;
+        break;
+      }
+    }
+    return [args, rest];
   }
-  const forms = [...(sexp as SCons)].map(analyzeSexp);
-  return (frame: Frame) => {
-    let result: SchemeType = false;
-    for (const form of forms) {
-      result = form(frame);
-      if (result !== false) return result;
-    }
-    return result;
-  };
-}
 
-function analyzeAnd(sexp: SchemeType): (frame: Frame) => SchemeType {
-  if (sexp === null) {
-    return () => true;
+  // Assumes sexp is of the form ((arg1 arg2 ...) body)
+  private analyzeLambda(sexp: SCons): (frame: Frame) => SchemeType {
+    let [paramNames, restName] = this.getLambdaArgs(sexp.car as SCons);
+
+    const body = sexp.cdr as SCons;
+
+    // Assumes body is of the form (expr1 expr2 ...))
+    const bodyFunc = this.analyzeBody(body);
+
+    return (frame: Frame) => {
+      const closure = new SchemeClosure(paramNames, restName, bodyFunc, frame);
+      return closure;
+    };
   }
-  const forms = [...(sexp as SCons)].map(analyzeSexp);
-  return (frame: Frame) => {
-    let result: SchemeType = true;
-    for (const form of forms) {
-      result = form(frame);
-      if (result === false) return false;
+
+  // sexp is of the form (expr1 expr2 ...)
+  private analyzeOr(sexp: SchemeType): (frame: Frame) => SchemeType {
+    if (sexp === null) {
+      return () => false;
     }
-    return result;
-  };
-}
+    const forms = [...(sexp as SCons)].map((s) => this.analyzeSexp(s));
+    return (frame: Frame) => {
+      let result: SchemeType = false;
+      for (const form of forms) {
+        result = form(frame);
+        if (result !== false) return result;
+      }
+      return result;
+    };
+  }
 
-function analyzeIf(sexp: SCons): (frame: Frame) => SchemeType {
-  const condition = analyzeSexp(sexp.car);
-  const consequent = analyzeSexp(safeCar(sexp.cdr));
-  const altSexp = safeCdr(sexp.cdr);
-  const alternative = altSexp !== null ? analyzeBody(altSexp as SCons) : null;
-  return (frame: Frame) => {
-    if (condition(frame) !== false) {
-      return consequent(frame);
-    } else {
-      return alternative !== null ? alternative(frame) : false;
+  private analyzeAnd(sexp: SchemeType): (frame: Frame) => SchemeType {
+    if (sexp === null) {
+      return () => true;
     }
-  };
-}
+    const forms = [...(sexp as SCons)].map((s) => this.analyzeSexp(s));
+    return (frame: Frame) => {
+      let result: SchemeType = true;
+      for (const form of forms) {
+        result = form(frame);
+        if (result === false) return false;
+      }
+      return result;
+    };
+  }
 
-function analyzeBody(sexp: SCons): (frame: Frame) => SchemeType {
-  const bodySexps = [...sexp];
+  private analyzeIf(sexp: SCons): (frame: Frame) => SchemeType {
+    const condition = this.analyzeSexp(sexp.car);
+    const consequent = this.analyzeSexp(safeCar(sexp.cdr));
+    const altSexp = safeCdr(sexp.cdr);
+    const alternative =
+      altSexp !== null ? this.analyzeBody(altSexp as SCons) : null;
+    return (frame: Frame) => {
+      if (condition(frame) !== false) {
+        return consequent(frame);
+      } else {
+        return alternative !== null ? alternative(frame) : false;
+      }
+    };
+  }
 
-  const body = bodySexps.map((expr) => analyzeSexp(expr));
+  private analyzeBody(sexp: SCons): (frame: Frame) => SchemeType {
+    const bodySexps = [...sexp];
 
-  return (frame: Frame) => {
-    let result = null;
-    for (const expr of body) {
-      result = expr(frame);
-    }
-    return result;
-  };
+    const body = bodySexps.map((expr) => this.analyzeSexp(expr));
+
+    return (frame: Frame) => {
+      let result = null;
+      for (const expr of body) {
+        result = expr(frame);
+      }
+      return result;
+    };
+  }
 }
 
 //
@@ -1056,6 +1059,7 @@ async function main(): Promise<void> {
   const lexer = new Lexer(input);
   const parser = new SchemeParser(lexer);
   const env = initEnv();
+  const analyzer = new SchemeAnalyzer();
 
   try {
     while (true) {
@@ -1063,8 +1067,8 @@ async function main(): Promise<void> {
       if (token.type === TokenType.EOF) break;
 
       const result = await parser.parse();
-      const expanded = expandMacros(result);
-      const analyzed = analyzeSexp(expanded);
+      const expanded = analyzer.expandMacros(result);
+      const analyzed = analyzer.analyzeSexp(expanded);
       console.log(sexpToStr(analyzed(env)));
     }
   } catch (error) {
