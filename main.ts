@@ -125,9 +125,12 @@ export class Lexer {
       if (/\s/.test(this.currentChar)) {
         await this.advance();
       } else if (this.currentChar === ";") {
-        while (this.currentChar !== null && this.currentChar !== "\n") {
+        do {
           await this.advance();
-        }
+        } while (
+          this.currentChar !== null &&
+          (this.currentChar as string) !== "\n"
+        );
       } else {
         break;
       }
