@@ -1,69 +1,13 @@
-// Re-export lexer types for backwards compatibility
-export { TokenType, Token, InputStream, Lexer } from "./lexer";
-import { TokenType, Token, InputStream, Lexer } from "./lexer";
-
-//
-// Type System
-//
-export class SchemeId {
-  constructor(public id: string) {}
-}
-
-export class SCons {
-  constructor(
-    public car: SchemeType,
-    public cdr: SchemeType,
-  ) {}
-
-  *[Symbol.iterator](): Iterator<SchemeType> {
-    let current: SchemeType = this;
-    while (current instanceof SCons) {
-      yield current.car;
-      current = current.cdr;
-    }
-  }
-}
-
-class SchemeBuiltin {
-  constructor(public func: (args: SchemeType[]) => SchemeType) {}
-  public eval(args: SchemeType[]): SchemeType {
-    return this.func(args);
-  }
-}
-
-class SchemeClosure {
-  constructor(
-    protected params: string[],
-    protected restParam: string | null,
-    protected expr: (frame: Frame) => SchemeType,
-    protected env: Frame,
-  ) {}
-
-  public eval(args: SchemeType[]): SchemeType {
-    const frame = new Frame(this.env);
-    for (let i = 0; i < this.params.length; i++) {
-      frame.set(this.params[i], args[i]);
-    }
-    if (this.restParam != null) {
-      const restArgs = args.slice(this.params.length);
-      const restList = restArgs.reverse().reduce((accumulator, current) => {
-        return new SCons(current, accumulator);
-      }, null);
-      frame.set(this.restParam, restList);
-    }
-    return this.expr(frame);
-  }
-}
-
-export type SchemeType =
-  | SchemeId
-  | SchemeBuiltin
-  | SchemeClosure
-  | SCons
-  | number
-  | string
-  | boolean
-  | null;
+import { TokenType, InputStream, Lexer } from "./lexer";
+import { SchemeParser } from "./parser";
+import {
+  SchemeId,
+  SCons,
+  Frame,
+  SchemeBuiltin,
+  SchemeClosure,
+  SchemeType,
+} from "./types";
 
 function safeCar(s: SchemeType): SchemeType {
   if (s instanceof SCons) {
@@ -123,117 +67,6 @@ export function sexpToStr(sexp: SchemeType): string {
     return "#<builtin>";
   } else {
     throw new Error(`Unexpected type B: ${typeof sexp}`);
-  }
-}
-
-//
-// Parser
-//
-export class SchemeParser {
-  constructor(private lexer: Lexer) {}
-
-  async parse(): Promise<SchemeType> {
-    const token = await this.lexer.next();
-
-    if (token.type === TokenType.Number) {
-      return token.value;
-    } else if (token.type === TokenType.String) {
-      return token.value;
-    } else if (token.type === TokenType.Boolean) {
-      return token.value;
-    } else if (token.type === TokenType.Identifier) {
-      return new SchemeId(token.value);
-    } else if (token.type === TokenType.LeftParen) {
-      return this.parseList();
-    } else if (token.type === TokenType.Quote) {
-      return new SCons(
-        new SchemeId("quote"),
-        new SCons(await this.parse(), null),
-      );
-    } else {
-      throw new Error(`Unexpected token: ${token.type}`);
-    }
-  }
-
-  private async parseList(): Promise<SchemeType> {
-    // Check if empty list ()
-    const token = await this.lexer.peek();
-
-    if (token.type === TokenType.RightParen) {
-      await this.lexer.next(); // consume )
-      return null;
-    }
-
-    // Parse first element (car)
-    const car = await this.parse();
-
-    // Parse rest of list (cdr)
-    const cdr = await this.parseListTail();
-
-    return new SCons(car, cdr);
-  }
-
-  private async parseListTail(): Promise<SchemeType> {
-    const token = await this.lexer.peek();
-
-    if (token.type === TokenType.RightParen) {
-      // End of proper list - null terminated
-      await this.lexer.next(); // consume )
-      return null;
-    }
-
-    if (token.type === TokenType.Dot) {
-      // Dotted pair - next element is the final cdr
-      await this.lexer.next(); // consume dot
-      const cdr = await this.parse();
-
-      const closeParen = await this.lexer.next();
-      if (closeParen.type !== TokenType.RightParen) {
-        throw new Error(
-          `Expected ')' after dotted pair, got ${closeParen.type}`,
-        );
-      }
-
-      return cdr;
-    }
-
-    // More elements in the list
-    const car = await this.parse();
-    const cdr = await this.parseListTail();
-    return new SCons(car, cdr);
-  }
-}
-
-//
-// Symbol table / Environment
-//
-export class Frame {
-  private bindings: Map<string, SchemeType>;
-
-  constructor(public parent: Frame | null) {
-    this.parent = parent;
-    this.bindings = new Map();
-  }
-
-  public findFrame(name: string): Frame | null {
-    let currentFrame: Frame | null = this;
-
-    while (currentFrame !== null) {
-      if (currentFrame.bindings.has(name)) return currentFrame;
-      currentFrame = currentFrame.parent;
-    }
-
-    return null;
-  }
-
-  public lookup(name: string): SchemeType | null {
-    let frame = this.findFrame(name);
-    if (frame !== null) return frame.bindings.get(name) as SchemeType;
-    return null;
-  }
-
-  public set(name: string, value: SchemeType): void {
-    this.bindings.set(name, value);
   }
 }
 
