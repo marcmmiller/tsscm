@@ -491,7 +491,7 @@ function printListTail(sexp: SchemeType): string {
   }
 }
 
-function sexpToStr(sexp: SchemeType): string {
+export function sexpToStr(sexp: SchemeType): string {
   if (sexp instanceof SchemeId) {
     return sexp.id;
   } else if (sexp instanceof SCons) {
@@ -594,7 +594,7 @@ export class SchemeParser {
 //
 // Symbol table / Environment
 //
-class Frame {
+export class Frame {
   private bindings: Map<string, SchemeType>;
 
   constructor(public parent: Frame | null) {
@@ -633,7 +633,7 @@ function carIsId(sexp: SchemeType, id: string): boolean {
   );
 }
 
-class SchemeAnalyzer {
+export class SchemeAnalyzer {
   private macros = new Map<string, SchemeType>();
 
   private expandMacrosSexp(sexp: SchemeType): [SchemeType, boolean] {
@@ -859,7 +859,7 @@ class SchemeAnalyzer {
 //
 // REPL
 //
-function initEnv(): Frame {
+export function initEnv(): Frame {
   const env = new Frame(null);
   env.set(
     "+",
@@ -1036,13 +1036,15 @@ function initEnv(): Frame {
         throw new Error("apply: Expected at least two arguments.");
       const func = args[0];
       const lastArg = args[args.length - 1];
+      if (lastArg !== null && !(lastArg instanceof SCons))
+        throw new Error("apply: Last argument must be a list.");
       // Collect intermediate args and spread the final list
       const intermediate = args.slice(1, -1);
       const finalArgs: SchemeType[] = [...intermediate];
-      let current = lastArg;
-      while (current instanceof SCons) {
+      let current: SCons | null = lastArg as SCons | null;
+      while (current !== null) {
         finalArgs.push(current.car);
-        current = current.cdr;
+        current = current.cdr as SCons | null;
       }
       if (func instanceof SchemeBuiltin) {
         return func.eval(finalArgs);
@@ -1064,6 +1066,8 @@ async function main(): Promise<void> {
   const env = initEnv();
   const analyzer = new SchemeAnalyzer();
 
+  console.log("TSSCM.");
+
   try {
     while (true) {
       const token = await lexer.peek();
@@ -1081,4 +1085,7 @@ async function main(): Promise<void> {
   }
 }
 
-main();
+// Only run main when this file is executed directly, not when imported
+if (/main\.[tj]s$/.test(process.argv[1] ?? "")) {
+  main();
+}

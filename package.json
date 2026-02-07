@@ -7,7 +7,7 @@
     "build": "tsc",
     "start": "node dist/main.js",
     "dev": "tsc && node dist/main.js",
-    "test": "tsc && node dist/lexer.test.js && node dist/parser.test.js"
+    "test": "tsc && node dist/lexer.test.js && node dist/parser.test.js && node dist/interpreter.test.js"
   },
   "keywords": [
     "lexer",
