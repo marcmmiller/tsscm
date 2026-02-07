@@ -1079,7 +1079,7 @@ async function main(): Promise<void> {
       console.log(sexpToStr(analyzed(env)));
     }
   } catch (error) {
-    console.error(`Error: ${error instanceof Error ? error.message : error}`);
+    console.error(error instanceof Error ? error.stack : error);
   } finally {
     lexer.close();
   }
