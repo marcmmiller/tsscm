@@ -674,6 +674,45 @@ async function runTests(): Promise<void> {
     assert.strictEqual(results[1], 55);
   });
 
+  // --- Tail Call Elimination ---
+
+  console.log("\n--- Tail Call Elimination ---");
+
+  await test("tail-recursive sum (deep recursion)", async () => {
+    // This would stack overflow without TCE
+    const { results } = await evaluateAll(`
+      (define (sum-tail n acc)
+        (if (< n 1)
+            acc
+            (sum-tail (- n 1) (+ acc n))))
+      (sum-tail 10000 0)
+    `);
+    // Sum of 1 to 10000 = 10000 * 10001 / 2 = 50005000
+    assert.strictEqual(results[1], 50005000);
+  });
+
+  await test("tail-recursive countdown", async () => {
+    const { results } = await evaluateAll(`
+      (define (countdown n)
+        (if (< n 1)
+            0
+            (countdown (- n 1))))
+      (countdown 10000)
+    `);
+    assert.strictEqual(results[1], 0);
+  });
+
+  await test("mutual tail recursion", async () => {
+    const { results } = await evaluateAll(`
+      (define (even? n)
+        (if (eq? n 0) #t (odd? (- n 1))))
+      (define (odd? n)
+        (if (eq? n 0) #f (even? (- n 1))))
+      (even? 1000)
+    `);
+    assert.strictEqual(results[2], true);
+  });
+
   // --- Print Summary ---
 
   console.log("\n===================");

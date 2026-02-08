@@ -68,11 +68,11 @@ export class SchemeClosure {
   constructor(
     protected params: string[],
     protected restParam: string | null,
-    protected expr: (frame: Frame) => SchemeType,
+    protected expr: (frame: Frame) => TrampolineResult,
     protected env: Frame,
   ) {}
 
-  public eval(args: SchemeType[]): SchemeType {
+  private bindArgs(args: SchemeType[]): Frame {
     const frame = new Frame(this.env);
     for (let i = 0; i < this.params.length; i++) {
       frame.set(this.params[i], args[i]);
@@ -87,7 +87,19 @@ export class SchemeClosure {
       );
       frame.set(this.restParam, restList);
     }
-    return this.expr(frame);
+    return frame;
+  }
+
+  // For non-tail calls: run to completion
+  public eval(args: SchemeType[]): SchemeType {
+    const frame = this.bindArgs(args);
+    return trampoline(this.expr(frame));
+  }
+
+  // For tail calls: return thunk for trampoline
+  public evalTail(args: SchemeType[]): TrampolineResult {
+    const frame = this.bindArgs(args);
+    return trampolineThunk(() => this.expr(frame));
   }
 }
 
@@ -100,3 +112,25 @@ export type SchemeType =
   | string
   | boolean
   | null;
+
+//
+// Trampoline types for tail call elimination
+//
+export type TrampolineResult =
+  | { done: true; value: SchemeType }
+  | { done: false; thunk: () => TrampolineResult };
+
+export function trampolineDone(value: SchemeType): TrampolineResult {
+  return { done: true, value };
+}
+
+export function trampolineThunk(thunk: () => TrampolineResult): TrampolineResult {
+  return { done: false, thunk };
+}
+
+export function trampoline(result: TrampolineResult): SchemeType {
+  while (!result.done) {
+    result = result.thunk();
+  }
+  return result.value;
+}
