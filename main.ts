@@ -2,220 +2,11 @@ import { createReadStream, existsSync } from "fs";
 import { resolve } from "path";
 import { TokenType, InputStream, Lexer } from "./lexer";
 import { SchemeParser } from "./parser";
-import {
-  SchemeId,
-  SCons,
-  Frame,
-  SchemeBuiltin,
-  SchemeClosure,
-  SchemeType,
-} from "./types";
+import { Frame } from "./types";
 import { SchemeAnalyzer, sexpToStr } from "./analyzer";
+import { initEnv } from "./builtins";
 
-//
-// REPL
-//
-export function initEnv(): Frame {
-  const env = new Frame(null);
-  env.set(
-    "+",
-    new SchemeBuiltin((args) =>
-      args.reduce(
-        (acc, val) => (acc as number) + (val as number),
-        0 as SchemeType,
-      ),
-    ),
-  );
-  env.set(
-    "-",
-    new SchemeBuiltin((args) =>
-      args
-        .slice(1)
-        .reduce((acc, val) => (acc as number) - (val as number), args[0]),
-    ),
-  );
-  env.set(
-    "*",
-    new SchemeBuiltin((args) =>
-      args.reduce(
-        (acc, val) => (acc as number) * (val as number),
-        1 as SchemeType,
-      ),
-    ),
-  );
-  env.set(
-    "/",
-    new SchemeBuiltin((args) =>
-      args
-        .slice(1)
-        .reduce((acc, val) => (acc as number) / (val as number), args[0]),
-    ),
-  );
-
-  env.set(
-    "cons",
-    new SchemeBuiltin((args) => {
-      if (args.length !== 2) throw new Error("cons: Expected two arguments.");
-      return new SCons(args[0], args[1]);
-    }),
-  );
-
-  env.set(
-    "car",
-    new SchemeBuiltin((args) => {
-      if (args.length !== 1) throw new Error("car: Expected one argument.");
-      if (!(args[0] instanceof SCons))
-        throw new Error("car: Expected a cons cell.");
-      return args[0].car;
-    }),
-  );
-
-  env.set(
-    "cdr",
-    new SchemeBuiltin((args) => {
-      if (args.length !== 1) throw new Error("cdr: Expected one argument.");
-      if (!(args[0] instanceof SCons))
-        throw new Error("cdr: Expected a cons cell.");
-      return args[0].cdr;
-    }),
-  );
-
-  env.set(
-    "log",
-    new SchemeBuiltin((args) => {
-      const argsStr = args.map((sexp) => {
-        if (typeof sexp === "string") {
-          return sexp;
-        } else {
-          return sexpToStr(sexp);
-        }
-      });
-      console.log(...argsStr);
-      return true;
-    }),
-  );
-
-  env.set(
-    "eq?",
-    new SchemeBuiltin((args) => {
-      if (args.length < 2)
-        throw new Error("eq?: Expected at least two arguments.");
-      for (let i = 1; i < args.length; i++) {
-        const a = args[i - 1];
-        const b = args[i];
-        if (a === b) continue;
-        if (a instanceof SchemeId && b instanceof SchemeId && a.id === b.id)
-          continue;
-        return false;
-      }
-      return true;
-    }),
-  );
-
-  env.set(
-    "eqv?",
-    new SchemeBuiltin((args) => {
-      if (args.length < 2)
-        throw new Error("eqv?: Expected at least two arguments.");
-      for (let i = 1; i < args.length; i++) {
-        const a = args[i - 1];
-        const b = args[i];
-        if (a === b) continue;
-        if (a instanceof SchemeId && b instanceof SchemeId && a.id === b.id)
-          continue;
-        return false;
-      }
-      return true;
-    }),
-  );
-
-  env.set(
-    "<",
-    new SchemeBuiltin((args) => {
-      if (args.length < 2)
-        throw new Error("<: Expected at least two arguments.");
-      for (let i = 1; i < args.length; i++) {
-        if (!((args[i - 1] as number) < (args[i] as number))) return false;
-      }
-      return true;
-    }),
-  );
-
-  env.set(
-    ">",
-    new SchemeBuiltin((args) => {
-      if (args.length < 2)
-        throw new Error(">: Expected at least two arguments.");
-      for (let i = 1; i < args.length; i++) {
-        if (!((args[i - 1] as number) > (args[i] as number))) return false;
-      }
-      return true;
-    }),
-  );
-
-  env.set(
-    "null?",
-    new SchemeBuiltin((args) => {
-      if (args.length !== 1) throw new Error("null?: Expected one argument.");
-      return args[0] === null;
-    }),
-  );
-
-  env.set(
-    "pair?",
-    new SchemeBuiltin((args) => {
-      if (args.length !== 1) throw new Error("null?: Expected one argument.");
-      return args[0] instanceof SCons;
-    }),
-  );
-
-  env.set(
-    "list?",
-    new SchemeBuiltin((args) => {
-      if (args.length !== 1) throw new Error("list?: Expected one argument.");
-      return args[0] instanceof SCons;
-    }),
-  );
-
-  env.set(
-    "symbol?",
-    new SchemeBuiltin((args) => {
-      if (args.length !== 1) throw new Error("symbol?: Expected one argument.");
-      return args[0] instanceof SchemeId;
-    }),
-  );
-
-  env.set(
-    "apply",
-    new SchemeBuiltin((args) => {
-      if (args.length < 2)
-        throw new Error("apply: Expected at least two arguments.");
-      const func = args[0];
-      const lastArg = args[args.length - 1];
-      if (lastArg !== null && !(lastArg instanceof SCons))
-        throw new Error("apply: Last argument must be a list.");
-      // Collect intermediate args and spread the final list
-      const intermediate = args.slice(1, -1);
-      const finalArgs: SchemeType[] = [...intermediate];
-      let current: SCons | null = lastArg as SCons | null;
-      while (current !== null) {
-        finalArgs.push(current.car);
-        current = current.cdr as SCons | null;
-      }
-      if (func instanceof SchemeBuiltin) {
-        return func.eval(finalArgs);
-      } else if (func instanceof SchemeClosure) {
-        return func.eval(finalArgs);
-      } else {
-        throw new Error("apply: First argument must be a function.");
-      }
-    }),
-  );
-
-  return env;
-}
-
-export async function runStream(
+export async function repl(
   env: Frame,
   analyzer: SchemeAnalyzer,
   input: InputStream,
@@ -245,19 +36,18 @@ async function main(): Promise<void> {
   try {
     const libPath = resolve(__dirname, "lib.scm");
     if (existsSync(libPath)) {
-      await runStream(
+      await repl(
         env,
         analyzer,
         new InputStream(createReadStream(libPath)),
       );
+    } else {
+      console.log("lib.scm is not available.")
     }
-    await runStream(env, analyzer, new InputStream(process.stdin));
+    await repl(env, analyzer, new InputStream(process.stdin));
   } catch (error) {
     console.error(error instanceof Error ? error.stack : error);
   }
 }
 
-// Only run main when this file is executed directly, not when imported
-if (/main\.[tj]s$/.test(process.argv[1] ?? "")) {
-  main();
-}
+main();

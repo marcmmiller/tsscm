@@ -8,6 +8,7 @@
 ;;  or
 ;;  define
 ;;  define-macro (most basic scheme macro support)
+;;  quote
 ;;
 ;; Builtin functions:
 ;;  apply
