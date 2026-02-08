@@ -465,6 +465,88 @@ async function runTests(): Promise<void> {
     assert.strictEqual(results[1], 6);
   });
 
+  // --- Quasiquote ---
+
+  console.log("\n--- Quasiquote ---");
+
+  await test("quasiquote without unquote", async () => {
+    const result = await evaluate("`(a b c)");
+    assert.strictEqual(sexpToStr(result), "(a b c)");
+  });
+
+  await test("quasiquote with unquote", async () => {
+    const { results } = await evaluateAll(`
+      (define x 42)
+      \`(a ,x c)
+    `);
+    assert.strictEqual(sexpToStr(results[1]), "(a 42 c)");
+  });
+
+  await test("quasiquote with unquote expression", async () => {
+    const result = await evaluate("`(a ,(+ 1 2) c)");
+    assert.strictEqual(sexpToStr(result), "(a 3 c)");
+  });
+
+  await test("quasiquote with unquote-splicing", async () => {
+    const { results } = await evaluateAll(`
+      (define xs '(1 2 3))
+      \`(a ,@xs b)
+    `);
+    assert.strictEqual(sexpToStr(results[1]), "(a 1 2 3 b)");
+  });
+
+  await test("quasiquote with unquote-splicing empty list", async () => {
+    const { results } = await evaluateAll(`
+      (define xs '())
+      \`(a ,@xs b)
+    `);
+    assert.strictEqual(sexpToStr(results[1]), "(a b)");
+  });
+
+  await test("quasiquote nested list", async () => {
+    const { results } = await evaluateAll(`
+      (define x 2)
+      \`((a ,x) (b ,(+ x 1)))
+    `);
+    assert.strictEqual(sexpToStr(results[1]), "((a 2) (b 3))");
+  });
+
+  await test("quasiquote atom", async () => {
+    const result = await evaluate("`42");
+    assert.strictEqual(result, 42);
+  });
+
+  await test("quasiquote symbol", async () => {
+    const result = await evaluate("`foo");
+    assert.ok(result instanceof SchemeId);
+    assert.strictEqual((result as SchemeId).id, "foo");
+  });
+
+  await test("quasiquote with multiple unquotes", async () => {
+    const { results } = await evaluateAll(`
+      (define a 1)
+      (define b 2)
+      \`(,a ,b ,a)
+    `);
+    assert.strictEqual(sexpToStr(results[2]), "(1 2 1)");
+  });
+
+  await test("quasiquote with unquote-splicing at end", async () => {
+    const { results } = await evaluateAll(`
+      (define xs '(2 3))
+      \`(1 ,@xs)
+    `);
+    assert.strictEqual(sexpToStr(results[1]), "(1 2 3)");
+  });
+
+  await test("quasiquote with unquote-splicing at start", async () => {
+    const { results } = await evaluateAll(`
+      (define xs '(1 2))
+      \`(,@xs 3)
+    `);
+    assert.strictEqual(sexpToStr(results[1]), "(1 2 3)");
+  });
+
   // --- Recursion ---
 
   console.log("\n--- Recursion ---");

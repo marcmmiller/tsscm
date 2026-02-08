@@ -9,6 +9,9 @@ export enum TokenType {
   LeftParen = "LeftParen",
   RightParen = "RightParen",
   Quote = "Quote",
+  Quasiquote = "Quasiquote",
+  Unquote = "Unquote",
+  UnquoteSplicing = "UnquoteSplicing",
   Dot = "Dot",
   EOF = "EOF",
 }
@@ -21,6 +24,9 @@ export type Token =
   | { type: TokenType.LeftParen }
   | { type: TokenType.RightParen }
   | { type: TokenType.Quote }
+  | { type: TokenType.Quasiquote }
+  | { type: TokenType.Unquote }
+  | { type: TokenType.UnquoteSplicing }
   | { type: TokenType.Dot }
   | { type: TokenType.EOF };
 
@@ -263,6 +269,14 @@ export class Lexer {
         return { type: TokenType.Dot };
       case "'":
         return { type: TokenType.Quote };
+      case "`":
+        return { type: TokenType.Quasiquote };
+      case ",":
+        if (this.currentChar === "@") {
+          await this.advance();
+          return { type: TokenType.UnquoteSplicing };
+        }
+        return { type: TokenType.Unquote };
       case '"':
         return this.readString();
       case "#":

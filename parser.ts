@@ -25,6 +25,21 @@ export class SchemeParser {
         new SchemeId("quote"),
         new SCons(await this.parse(), null),
       );
+    } else if (token.type === TokenType.Quasiquote) {
+      return new SCons(
+        new SchemeId("quasiquote"),
+        new SCons(await this.parse(), null),
+      );
+    } else if (token.type === TokenType.Unquote) {
+      return new SCons(
+        new SchemeId("unquote"),
+        new SCons(await this.parse(), null),
+      );
+    } else if (token.type === TokenType.UnquoteSplicing) {
+      return new SCons(
+        new SchemeId("unquote-splicing"),
+        new SCons(await this.parse(), null),
+      );
     } else {
       throw new Error(`Unexpected token: ${token.type}`);
     }
