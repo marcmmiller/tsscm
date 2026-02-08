@@ -62,6 +62,28 @@ export function initEnv(): Frame {
   );
 
   env.set(
+    "remainder",
+    new SchemeBuiltin((args) => {
+      if (args.length !== 2)
+        throw new Error("remainder: Expected two arguments.");
+      const a = args[0] as number;
+      const b = args[1] as number;
+      return a % b;
+    }),
+  );
+
+  env.set(
+    "modulo",
+    new SchemeBuiltin((args) => {
+      if (args.length !== 2)
+        throw new Error("modulo: Expected two arguments.");
+      const a = args[0] as number;
+      const b = args[1] as number;
+      return ((a % b) + b) % b;
+    }),
+  );
+
+  env.set(
     "cons",
     new SchemeBuiltin((args) => {
       if (args.length !== 2) throw new Error("cons: Expected two arguments.");
