@@ -46,6 +46,22 @@ export function initEnv(): Frame {
   );
 
   env.set(
+    "abs",
+    new SchemeBuiltin((args) => {
+      if (args.length !== 1) throw new Error("abs: Expected one argument.");
+      return Math.abs(args[0] as number);
+    }),
+  );
+
+  env.set(
+    "sqrt",
+    new SchemeBuiltin((args) => {
+      if (args.length !== 1) throw new Error("sqrt: Expected one argument.");
+      return Math.sqrt(args[0] as number);
+    }),
+  );
+
+  env.set(
     "cons",
     new SchemeBuiltin((args) => {
       if (args.length !== 2) throw new Error("cons: Expected two arguments.");

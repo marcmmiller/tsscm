@@ -150,6 +150,26 @@ async function runTests(): Promise<void> {
     assert.strictEqual(result, 11);
   });
 
+  await test("abs positive", async () => {
+    const result = await evaluate("(abs 5)");
+    assert.strictEqual(result, 5);
+  });
+
+  await test("abs negative", async () => {
+    const result = await evaluate("(abs (- 0 7))");
+    assert.strictEqual(result, 7);
+  });
+
+  await test("sqrt", async () => {
+    const result = await evaluate("(sqrt 16)");
+    assert.strictEqual(result, 4);
+  });
+
+  await test("sqrt decimal", async () => {
+    const result = await evaluate("(sqrt 2)");
+    assert.strictEqual(result, Math.sqrt(2));
+  });
+
   // --- Comparison ---
 
   console.log("\n--- Comparison ---");
