@@ -88,3 +88,9 @@
       (cons 'begin body)
       `(let (,(car forms))
          (let* ,(cdr forms) ,@body))))
+
+;; Recursive-binding "letrec"
+(define-macro (letrec bindings . body)
+  `(let ,(map (lambda (b) (list (car b) #f)) bindings)
+     ,@(map (lambda (b) `(set! ,(car b) ,(cadr b))) bindings)
+     ,@body))
