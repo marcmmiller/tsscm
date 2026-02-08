@@ -1,3 +1,5 @@
+import { createReadStream, existsSync } from "fs";
+import { resolve } from "path";
 import { TokenType, InputStream, Lexer } from "./lexer";
 import { SchemeParser } from "./parser";
 import {
@@ -241,6 +243,14 @@ async function main(): Promise<void> {
   const analyzer = new SchemeAnalyzer();
 
   try {
+    const libPath = resolve(__dirname, "lib.scm");
+    if (existsSync(libPath)) {
+      await runStream(
+        env,
+        analyzer,
+        new InputStream(createReadStream(libPath)),
+      );
+    }
     await runStream(env, analyzer, new InputStream(process.stdin));
   } catch (error) {
     console.error(error instanceof Error ? error.stack : error);
