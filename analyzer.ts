@@ -122,7 +122,7 @@ export class SchemeAnalyzer {
     while (true) {
       const [expanded, changed] = this.expandMacrosSexp(current);
       if (!changed) return current;
-      console.log("macro expansion:", sexpToStr(expanded));
+      //console.log("macro expansion:", sexpToStr(expanded));
       current = expanded;
     }
   }
@@ -148,6 +148,8 @@ export class SchemeAnalyzer {
         return this.analyzeLambda(sexp.cdr as SCons);
       } else if (carIsId(sexp, "define")) {
         return this.analyzeDefine(sexp.cdr as SCons);
+      } else if (carIsId(sexp, "set!")) {
+        return this.analyzeSet(sexp.cdr as SCons);
       } else if (carIsId(sexp, "or")) {
         return this.analyzeOr(sexp.cdr);
       } else if (carIsId(sexp, "and")) {
@@ -182,6 +184,21 @@ export class SchemeAnalyzer {
     return (frame: Frame) => {
       frame.set(id, val(frame));
       return new SchemeId(id);
+    };
+  }
+
+  private analyzeSet(sexp: SCons): (frame: Frame) => SchemeType {
+    // sexp is (id value)
+    const id = safeId(sexp.car).id;
+    const val = this.analyzeSexp(safeCar(sexp.cdr));
+    return (frame: Frame) => {
+      const targetFrame = frame.findFrame(id);
+      if (targetFrame === null) {
+        throw new Error(`set!: Unbound variable: ${id}`);
+      }
+      const result = val(frame);
+      targetFrame.set(id, result);
+      return result;
     };
   }
 
