@@ -190,6 +190,46 @@ async function runTests(): Promise<void> {
     assert.strictEqual(result, 3);
   });
 
+  await test("floor", async () => {
+    const result = await evaluate("(floor 3.7)");
+    assert.strictEqual(result, 3);
+  });
+
+  await test("floor negative", async () => {
+    const result = await evaluate("(floor (- 0 3.2))");
+    assert.strictEqual(result, -4);
+  });
+
+  await test("ceiling", async () => {
+    const result = await evaluate("(ceiling 3.2)");
+    assert.strictEqual(result, 4);
+  });
+
+  await test("ceiling negative", async () => {
+    const result = await evaluate("(ceiling (- 0 3.7))");
+    assert.strictEqual(result, -3);
+  });
+
+  await test("truncate positive", async () => {
+    const result = await evaluate("(truncate 3.7)");
+    assert.strictEqual(result, 3);
+  });
+
+  await test("truncate negative", async () => {
+    const result = await evaluate("(truncate (- 0 3.7))");
+    assert.strictEqual(result, -3);
+  });
+
+  await test("round", async () => {
+    const result = await evaluate("(round 3.5)");
+    assert.strictEqual(result, 4);
+  });
+
+  await test("round down", async () => {
+    const result = await evaluate("(round 3.4)");
+    assert.strictEqual(result, 3);
+  });
+
   // --- Comparison ---
 
   console.log("\n--- Comparison ---");

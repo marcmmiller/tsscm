@@ -84,6 +84,39 @@ export function initEnv(): Frame {
   );
 
   env.set(
+    "floor",
+    new SchemeBuiltin((args) => {
+      if (args.length !== 1) throw new Error("floor: Expected one argument.");
+      return Math.floor(args[0] as number);
+    }),
+  );
+
+  env.set(
+    "ceiling",
+    new SchemeBuiltin((args) => {
+      if (args.length !== 1) throw new Error("ceiling: Expected one argument.");
+      return Math.ceil(args[0] as number);
+    }),
+  );
+
+  env.set(
+    "truncate",
+    new SchemeBuiltin((args) => {
+      if (args.length !== 1)
+        throw new Error("truncate: Expected one argument.");
+      return Math.trunc(args[0] as number);
+    }),
+  );
+
+  env.set(
+    "round",
+    new SchemeBuiltin((args) => {
+      if (args.length !== 1) throw new Error("round: Expected one argument.");
+      return Math.round(args[0] as number);
+    }),
+  );
+
+  env.set(
     "cons",
     new SchemeBuiltin((args) => {
       if (args.length !== 2) throw new Error("cons: Expected two arguments.");
