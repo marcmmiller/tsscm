@@ -170,6 +170,26 @@ async function runTests(): Promise<void> {
     assert.strictEqual(result, Math.sqrt(2));
   });
 
+  await test("remainder positive", async () => {
+    const result = await evaluate("(remainder 13 4)");
+    assert.strictEqual(result, 1);
+  });
+
+  await test("remainder negative dividend", async () => {
+    const result = await evaluate("(remainder (- 0 13) 4)");
+    assert.strictEqual(result, -1);
+  });
+
+  await test("modulo positive", async () => {
+    const result = await evaluate("(modulo 13 4)");
+    assert.strictEqual(result, 1);
+  });
+
+  await test("modulo negative dividend", async () => {
+    const result = await evaluate("(modulo (- 0 13) 4)");
+    assert.strictEqual(result, 3);
+  });
+
   // --- Comparison ---
 
   console.log("\n--- Comparison ---");
