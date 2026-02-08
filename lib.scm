@@ -81,3 +81,10 @@
     (cons (append (cons 'lambda (list (map car forms)))
                   body)
           (map cadr forms)))
+
+;; Sequential-binding "let*"
+(define-macro (let* forms . body)
+  (if (null? forms)
+      (cons 'begin body)
+      `(let (,(car forms))
+         (let* ,(cdr forms) ,@body))))
