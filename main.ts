@@ -213,14 +213,13 @@ export function initEnv(): Frame {
   return env;
 }
 
-async function main(): Promise<void> {
-  const input = new InputStream(process.stdin);
+export async function runStream(
+  env: Frame,
+  analyzer: SchemeAnalyzer,
+  input: InputStream,
+): Promise<void> {
   const lexer = new Lexer(input);
   const parser = new SchemeParser(lexer);
-  const env = initEnv();
-  const analyzer = new SchemeAnalyzer();
-
-  console.log("TSSCM.");
 
   try {
     while (true) {
@@ -232,10 +231,19 @@ async function main(): Promise<void> {
       const analyzed = analyzer.analyzeSexp(expanded);
       console.log(sexpToStr(analyzed(env)));
     }
-  } catch (error) {
-    console.error(error instanceof Error ? error.stack : error);
   } finally {
     lexer.close();
+  }
+}
+
+async function main(): Promise<void> {
+  const env = initEnv();
+  const analyzer = new SchemeAnalyzer();
+
+  try {
+    await runStream(env, analyzer, new InputStream(process.stdin));
+  } catch (error) {
+    console.error(error instanceof Error ? error.stack : error);
   }
 }
 
