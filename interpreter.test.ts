@@ -3,7 +3,7 @@ import { InputStream, Lexer, TokenType } from "./lexer";
 import { SchemeParser } from "./parser";
 import { SchemeId, SCons, SchemeType, Frame } from "./types";
 import { SchemeAnalyzer, sexpToStr } from "./analyzer";
-import { initEnv } from "./main";
+import { initEnv } from "./builtins";
 
 // Test utilities
 async function evaluate(input: string, env?: Frame): Promise<SchemeType> {
