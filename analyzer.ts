@@ -91,8 +91,11 @@ export class SchemeAnalyzer {
       return [sexp, false];
     }
 
-    // Don't expand inside quoted forms
-    if (sexp.car instanceof SchemeId && sexp.car.id === "quote") {
+    // Don't expand inside quoted or quasiquoted forms
+    if (
+      sexp.car instanceof SchemeId &&
+      (sexp.car.id === "quote" || sexp.car.id === "quasiquote")
+    ) {
       return [sexp, false];
     }
 
