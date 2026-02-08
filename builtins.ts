@@ -250,6 +250,14 @@ export function initEnv(): Frame {
   );
 
   env.set(
+    "procedure?",
+    new SchemeBuiltin((args) => {
+      if (args.length !== 1) throw new Error("procedure?: Expected one argument.");
+      return args[0] instanceof SchemeClosure || args[0] instanceof SchemeBuiltin;
+    }),
+  );
+
+  env.set(
     "apply",
     new SchemeBuiltin((args) => {
       if (args.length < 2)
