@@ -153,6 +153,8 @@ export class SchemeAnalyzer {
         return this.analyzeIf(sexp.cdr as SCons);
       } else if (carIsId(sexp, "define-macro")) {
         return this.analyzeDefineMacro(sexp.cdr as SCons);
+      } else if (carIsId(sexp, "quasiquote")) {
+        return this.analyzeQuasiquote((sexp.cdr as SCons).car);
       } else {
         return this.analyzeApplication(sexp);
       }
@@ -288,6 +290,83 @@ export class SchemeAnalyzer {
       } else {
         return alternative !== null ? alternative(frame) : false;
       }
+    };
+  }
+
+  private analyzeQuasiquote(sexp: SchemeType): (frame: Frame) => SchemeType {
+    // Atoms are returned as-is (like quote)
+    if (!(sexp instanceof SCons)) {
+      return () => sexp;
+    }
+
+    // (unquote expr) - evaluate expr
+    if (carIsId(sexp, "unquote")) {
+      return this.analyzeSexp(safeCar(sexp.cdr));
+    }
+
+    // (unquote-splicing expr) at top level is an error
+    if (carIsId(sexp, "unquote-splicing")) {
+      throw new Error("unquote-splicing: not valid at top level of quasiquote");
+    }
+
+    // It's a list - process each element, handling unquote-splicing
+    const elements: Array<{
+      isSplice: boolean;
+      func: (frame: Frame) => SchemeType;
+    }> = [];
+
+    let current: SchemeType = sexp;
+    while (current instanceof SCons) {
+      const elem = current.car;
+
+      if (carIsId(elem, "unquote-splicing")) {
+        // This element should be spliced
+        elements.push({
+          isSplice: true,
+          func: this.analyzeSexp(safeCar((elem as SCons).cdr)),
+        });
+      } else {
+        // Regular element - recursively process with quasiquote
+        elements.push({
+          isSplice: false,
+          func: this.analyzeQuasiquote(elem),
+        });
+      }
+
+      current = current.cdr;
+    }
+
+    // Handle improper lists (dotted pairs)
+    const tailFunc = current !== null ? this.analyzeQuasiquote(current) : null;
+
+    return (frame: Frame) => {
+      // Collect all result elements, splicing where needed
+      const resultElements: SchemeType[] = [];
+
+      for (const { isSplice, func } of elements) {
+        const value = func(frame);
+        if (isSplice) {
+          // Splice the list elements
+          if (value !== null && !(value instanceof SCons)) {
+            throw new Error("unquote-splicing: expected a list");
+          }
+          let list = value as SCons | null;
+          while (list !== null) {
+            resultElements.push(list.car);
+            list = list.cdr as SCons | null;
+          }
+        } else {
+          resultElements.push(value);
+        }
+      }
+
+      // Build the cons list from the elements (right to left)
+      let result: SchemeType = tailFunc ? tailFunc(frame) : null;
+      for (let i = resultElements.length - 1; i >= 0; i--) {
+        result = new SCons(resultElements[i], result);
+      }
+
+      return result;
     };
   }
 

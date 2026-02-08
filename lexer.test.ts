@@ -413,6 +413,70 @@ async function runTests(): Promise<void> {
     assertTokenEquals(tokens[10], { type: TokenType.RightParen });
   });
 
+  // --- Quasiquote/Unquote Tests ---
+
+  console.log("\n--- Quasiquote/Unquote ---");
+
+  await test("quasiquote", async () => {
+    const tokens = await tokenize("`x");
+    assert.strictEqual(tokens.length, 3);
+    assertTokenEquals(tokens[0], { type: TokenType.Quasiquote });
+    assertTokenEquals(tokens[1], { type: TokenType.Identifier, value: "x" });
+  });
+
+  await test("unquote", async () => {
+    const tokens = await tokenize(",x");
+    assert.strictEqual(tokens.length, 3);
+    assertTokenEquals(tokens[0], { type: TokenType.Unquote });
+    assertTokenEquals(tokens[1], { type: TokenType.Identifier, value: "x" });
+  });
+
+  await test("unquote-splicing", async () => {
+    const tokens = await tokenize(",@x");
+    assert.strictEqual(tokens.length, 3);
+    assertTokenEquals(tokens[0], { type: TokenType.UnquoteSplicing });
+    assertTokenEquals(tokens[1], { type: TokenType.Identifier, value: "x" });
+  });
+
+  await test("quasiquote with list", async () => {
+    const tokens = await tokenize("`(a b c)");
+    assert.strictEqual(tokens.length, 7);
+    assertTokenEquals(tokens[0], { type: TokenType.Quasiquote });
+    assertTokenEquals(tokens[1], { type: TokenType.LeftParen });
+    assertTokenEquals(tokens[2], { type: TokenType.Identifier, value: "a" });
+  });
+
+  await test("unquote inside quasiquote", async () => {
+    const tokens = await tokenize("`(a ,b c)");
+    assert.strictEqual(tokens.length, 8);
+    assertTokenEquals(tokens[0], { type: TokenType.Quasiquote });
+    assertTokenEquals(tokens[1], { type: TokenType.LeftParen });
+    assertTokenEquals(tokens[2], { type: TokenType.Identifier, value: "a" });
+    assertTokenEquals(tokens[3], { type: TokenType.Unquote });
+    assertTokenEquals(tokens[4], { type: TokenType.Identifier, value: "b" });
+    assertTokenEquals(tokens[5], { type: TokenType.Identifier, value: "c" });
+    assertTokenEquals(tokens[6], { type: TokenType.RightParen });
+  });
+
+  await test("unquote-splicing inside quasiquote", async () => {
+    const tokens = await tokenize("`(a ,@b c)");
+    assert.strictEqual(tokens.length, 8);
+    assertTokenEquals(tokens[0], { type: TokenType.Quasiquote });
+    assertTokenEquals(tokens[1], { type: TokenType.LeftParen });
+    assertTokenEquals(tokens[2], { type: TokenType.Identifier, value: "a" });
+    assertTokenEquals(tokens[3], { type: TokenType.UnquoteSplicing });
+    assertTokenEquals(tokens[4], { type: TokenType.Identifier, value: "b" });
+    assertTokenEquals(tokens[5], { type: TokenType.Identifier, value: "c" });
+    assertTokenEquals(tokens[6], { type: TokenType.RightParen });
+  });
+
+  await test("comma followed by space is just unquote", async () => {
+    const tokens = await tokenize(", x");
+    assert.strictEqual(tokens.length, 3);
+    assertTokenEquals(tokens[0], { type: TokenType.Unquote });
+    assertTokenEquals(tokens[1], { type: TokenType.Identifier, value: "x" });
+  });
+
   // --- Peek Tests ---
 
   console.log("\n--- Peek Behavior ---");

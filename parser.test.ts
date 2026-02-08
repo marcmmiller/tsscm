@@ -185,6 +185,88 @@ async function runTests(): Promise<void> {
     assert.strictEqual(cons3.cdr, null);
   });
 
+  // --- Quasiquote ---
+
+  console.log("\n--- Quasiquote ---");
+
+  await test("parse quasiquote", async () => {
+    // `x => (quasiquote x)
+    const result = await parse("`x");
+    assert.ok(result instanceof SCons);
+    const cons1 = result as SCons;
+    assert.ok(cons1.car instanceof SchemeId);
+    assert.strictEqual((cons1.car as SchemeId).id, "quasiquote");
+    assert.ok(cons1.cdr instanceof SCons);
+    const cons2 = cons1.cdr as SCons;
+    assert.ok(cons2.car instanceof SchemeId);
+    assert.strictEqual((cons2.car as SchemeId).id, "x");
+    assert.strictEqual(cons2.cdr, null);
+  });
+
+  await test("parse unquote", async () => {
+    // ,x => (unquote x)
+    const result = await parse(",x");
+    assert.ok(result instanceof SCons);
+    const cons1 = result as SCons;
+    assert.ok(cons1.car instanceof SchemeId);
+    assert.strictEqual((cons1.car as SchemeId).id, "unquote");
+    assert.ok(cons1.cdr instanceof SCons);
+    const cons2 = cons1.cdr as SCons;
+    assert.ok(cons2.car instanceof SchemeId);
+    assert.strictEqual((cons2.car as SchemeId).id, "x");
+    assert.strictEqual(cons2.cdr, null);
+  });
+
+  await test("parse unquote-splicing", async () => {
+    // ,@x => (unquote-splicing x)
+    const result = await parse(",@x");
+    assert.ok(result instanceof SCons);
+    const cons1 = result as SCons;
+    assert.ok(cons1.car instanceof SchemeId);
+    assert.strictEqual((cons1.car as SchemeId).id, "unquote-splicing");
+    assert.ok(cons1.cdr instanceof SCons);
+    const cons2 = cons1.cdr as SCons;
+    assert.ok(cons2.car instanceof SchemeId);
+    assert.strictEqual((cons2.car as SchemeId).id, "x");
+    assert.strictEqual(cons2.cdr, null);
+  });
+
+  await test("parse quasiquote with list", async () => {
+    // `(a b) => (quasiquote (a b))
+    const result = await parse("`(a b)");
+    assert.ok(result instanceof SCons);
+    const cons1 = result as SCons;
+    assert.ok(cons1.car instanceof SchemeId);
+    assert.strictEqual((cons1.car as SchemeId).id, "quasiquote");
+    assert.ok(cons1.cdr instanceof SCons);
+    const cons2 = cons1.cdr as SCons;
+    // cons2.car should be the list (a b)
+    assert.ok(cons2.car instanceof SCons);
+    assert.strictEqual(cons2.cdr, null);
+  });
+
+  await test("parse quasiquote with unquote inside", async () => {
+    // `(a ,b) => (quasiquote (a (unquote b)))
+    const result = await parse("`(a ,b)");
+    assert.ok(result instanceof SCons);
+    const outerCons = result as SCons;
+    assert.ok(outerCons.car instanceof SchemeId);
+    assert.strictEqual((outerCons.car as SchemeId).id, "quasiquote");
+    // The second element is the list (a (unquote b))
+    assert.ok(outerCons.cdr instanceof SCons);
+    const innerList = (outerCons.cdr as SCons).car;
+    assert.ok(innerList instanceof SCons);
+    // First element is 'a'
+    assert.ok((innerList as SCons).car instanceof SchemeId);
+    assert.strictEqual(((innerList as SCons).car as SchemeId).id, "a");
+    // Second element is (unquote b)
+    const rest = (innerList as SCons).cdr as SCons;
+    assert.ok(rest.car instanceof SCons);
+    const unquoteExpr = rest.car as SCons;
+    assert.ok(unquoteExpr.car instanceof SchemeId);
+    assert.strictEqual((unquoteExpr.car as SchemeId).id, "unquote");
+  });
+
   // --- Error Handling ---
 
   console.log("\n--- Error Handling ---");
