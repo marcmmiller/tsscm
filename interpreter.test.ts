@@ -292,6 +292,27 @@ async function runTests(): Promise<void> {
     }, /Unbound variable/);
   });
 
+  await test("set! modifies variable", async () => {
+    const { results } = await evaluateAll("(define x 1) (set! x 42) x");
+    assert.strictEqual(results[2], 42);
+  });
+
+  await test("set! modifies variable in outer scope", async () => {
+    const { results } = await evaluateAll(`
+      (define x 1)
+      (define (modify) (set! x 99))
+      (modify)
+      x
+    `);
+    assert.strictEqual(results[3], 99);
+  });
+
+  await test("set! unbound variable throws", async () => {
+    await assert.rejects(async () => {
+      await evaluate("(set! undefined-var 42)");
+    }, /set!: Unbound variable/);
+  });
+
   // --- Lambda ---
 
   console.log("\n--- Lambda ---");

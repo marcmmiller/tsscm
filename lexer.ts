@@ -167,10 +167,10 @@ export class Lexer {
   private async readIdentifier(): Promise<Token> {
     let identifier = "";
 
-    // Identifier can contain: letters, digits, underscore, math operators (+, -, *, /), comparisons (<, >), and equals (=)
+    // Identifier can contain: letters, digits, underscore, math operators (+, -, *, /), comparisons (<, >), equals (=), and !
     while (
       this.currentChar !== null &&
-      /[a-zA-Z0-9_+\-*/<>=?]/.test(this.currentChar)
+      /[a-zA-Z0-9_+\-*/<>=?!]/.test(this.currentChar)
     ) {
       identifier += this.currentChar;
       await this.advance();
@@ -247,8 +247,8 @@ export class Lexer {
       return this.readNumber();
     }
 
-    // Identifiers (can start with letter, underscore, math operator, comparison, or equals)
-    if (/[a-zA-Z_+\-*/<>=?]/.test(this.currentChar)) {
+    // Identifiers (can start with letter, underscore, math operator, comparison, equals, or !)
+    if (/[a-zA-Z_+\-*/<>=?!]/.test(this.currentChar)) {
       return this.readIdentifier();
     }
 
