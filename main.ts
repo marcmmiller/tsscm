@@ -33,22 +33,25 @@ export async function repl(
   }
 }
 
+async function load(libPath: string, env: Frame, analyzer: SchemeAnalyzer): Promise<void> {
+  if (existsSync(libPath)) {
+    await repl(
+      env,
+      analyzer,
+      new InputStream(createReadStream(libPath)),
+      false  // suppress printing
+    );
+  } else {
+    console.log(libPath + ": file not found.")
+  }
+}
+
 async function main(): Promise<void> {
   const env = initEnv();
   const analyzer = new SchemeAnalyzer();
 
   try {
-    const libPath = resolve(__dirname, "lib.scm");
-    if (existsSync(libPath)) {
-      await repl(
-        env,
-        analyzer,
-        new InputStream(createReadStream(libPath)),
-        false  // suppress printing
-      );
-    } else {
-      console.log("lib.scm is not available.")
-    }
+    await load(resolve(__dirname, "lib.scm"), env, analyzer);
     await repl(env, analyzer, new InputStream(process.stdin));
   } catch (error) {
     console.error(error instanceof Error ? error.stack : error);
