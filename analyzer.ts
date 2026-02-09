@@ -5,9 +5,7 @@ import {
   SchemeBuiltin,
   SchemeClosure,
   SchemeType,
-  TrampolineResult,
-  trampolineDone,
-  trampolineThunk,
+  Thunk,
   trampoline,
 } from "./types";
 
@@ -79,6 +77,8 @@ export function sexpToStr(sexp: SchemeType): string {
     return "#<closure>";
   } else if (sexp instanceof SchemeBuiltin) {
     return "#<builtin>";
+  } else if (sexp instanceof Thunk) {
+    return "#<thunk>";
   } else {
     throw new Error(`Unexpected type B: ${typeof sexp}`);
   }
@@ -137,16 +137,13 @@ export class SchemeAnalyzer {
     return (frame: Frame) => trampoline(analyzed(frame));
   }
 
-  // Internal: returns TrampolineResult, tracks tail position
-  private analyze(
-    sexp: SchemeType,
-    tail: boolean,
-  ): (frame: Frame) => TrampolineResult {
+  // Internal: tracks tail position, may return Thunk for tail calls
+  private analyze(sexp: SchemeType, tail: boolean): (frame: Frame) => SchemeType {
     if (sexp instanceof SchemeId) {
       return (frame: Frame) => {
         if (frame.findFrame(sexp.id) === null)
           throw new Error(`Unbound variable: ${sexp.id}`);
-        return trampolineDone(frame.lookup(sexp.id));
+        return frame.lookup(sexp.id);
       };
     } else if (
       typeof sexp === "number" ||
@@ -154,11 +151,11 @@ export class SchemeAnalyzer {
       typeof sexp === "boolean" ||
       sexp === null
     ) {
-      return () => trampolineDone(sexp);
+      return () => sexp;
     } else if (sexp instanceof SCons) {
       if (carIsId(sexp, "quote")) {
         const quoted = (sexp.cdr as SCons).car;
-        return () => trampolineDone(quoted);
+        return () => quoted;
       } else if (carIsId(sexp, "lambda")) {
         return this.analyzeLambda(sexp.cdr as SCons);
       } else if (carIsId(sexp, "define")) {
@@ -184,9 +181,9 @@ export class SchemeAnalyzer {
     }
   }
 
-  private analyzeDefine(sexp: SCons): (frame: Frame) => TrampolineResult {
+  private analyzeDefine(sexp: SCons): (frame: Frame) => SchemeType {
     let id: string;
-    let val: (frame: Frame) => TrampolineResult;
+    let val: (frame: Frame) => SchemeType;
     if (sexp.car instanceof SCons) {
       // sexp is like ((funcname arg1 arg2) body)
       id = safeId(safeCar(sexp.car)).id;
@@ -198,11 +195,11 @@ export class SchemeAnalyzer {
     }
     return (frame: Frame) => {
       frame.set(id, trampoline(val(frame)));
-      return trampolineDone(new SchemeId(id));
+      return new SchemeId(id);
     };
   }
 
-  private analyzeSet(sexp: SCons): (frame: Frame) => TrampolineResult {
+  private analyzeSet(sexp: SCons): (frame: Frame) => SchemeType {
     // sexp is (id value)
     const id = safeId(sexp.car).id;
     const val = this.analyze(safeCar(sexp.cdr), false);
@@ -213,27 +210,27 @@ export class SchemeAnalyzer {
       }
       const result = trampoline(val(frame));
       targetFrame.set(id, result);
-      return trampolineDone(result);
+      return result;
     };
   }
 
-  private analyzeDefineMacro(sexp: SCons): (frame: Frame) => TrampolineResult {
+  private analyzeDefineMacro(sexp: SCons): (frame: Frame) => SchemeType {
     // sexp is ((name args...) body...)
     const id = safeId(safeCar(sexp.car)).id;
     const lambdaSexp = new SCons(safeCdr(sexp.car), sexp.cdr);
     const val = this.analyzeLambda(lambdaSexp);
     return (frame: Frame) => {
       this.macros.set(id, trampoline(val(frame)));
-      return trampolineDone(new SchemeId(id));
+      return new SchemeId(id);
     };
   }
 
   private analyzeApplication(
     sexp: SCons,
     tail: boolean,
-  ): (frame: Frame) => TrampolineResult {
+  ): (frame: Frame) => SchemeType {
     const operator = this.analyze(sexp.car, false);
-    let operands: ((frame: Frame) => TrampolineResult)[] = [];
+    let operands: ((frame: Frame) => SchemeType)[] = [];
 
     if (sexp.cdr instanceof SCons) {
       operands = [...(sexp.cdr as SCons)].map((s) => this.analyze(s, false));
@@ -244,14 +241,14 @@ export class SchemeAnalyzer {
       const args = operands.map((operand) => trampoline(operand(frame)));
 
       if (func instanceof SchemeBuiltin) {
-        return trampolineDone(func.eval(args));
+        return func.eval(args);
       } else if (func instanceof SchemeClosure) {
         if (tail) {
           // Tail call: return thunk for trampoline
           return func.evalTail(args);
         } else {
           // Non-tail call: evaluate fully
-          return trampolineDone(func.eval(args));
+          return func.eval(args);
         }
       } else {
         throw new Error(`Not a function: ${func}`);
@@ -261,7 +258,7 @@ export class SchemeAnalyzer {
 
   // Sexp is of the form (arg1 arg2 ... argn [ . rest ])
   private getLambdaArgs(sexpArgs: SCons): [string[], string | null] {
-    let args = [];
+    const args = [];
     let rest = null;
     let sexp: SchemeType = sexpArgs;
     while (sexp != null) {
@@ -277,7 +274,7 @@ export class SchemeAnalyzer {
   }
 
   // Assumes sexp is of the form ((arg1 arg2 ...) body)
-  private analyzeLambda(sexp: SCons): (frame: Frame) => TrampolineResult {
+  private analyzeLambda(sexp: SCons): (frame: Frame) => SchemeType {
     const [paramNames, restName] = this.getLambdaArgs(sexp.car as SCons);
 
     const body = sexp.cdr as SCons;
@@ -287,18 +284,14 @@ export class SchemeAnalyzer {
     const bodyFunc = this.analyzeBody(body, true);
 
     return (frame: Frame) => {
-      const closure = new SchemeClosure(paramNames, restName, bodyFunc, frame);
-      return trampolineDone(closure);
+      return new SchemeClosure(paramNames, restName, bodyFunc, frame);
     };
   }
 
   // sexp is of the form (expr1 expr2 ...)
-  private analyzeOr(
-    sexp: SchemeType,
-    tail: boolean,
-  ): (frame: Frame) => TrampolineResult {
+  private analyzeOr(sexp: SchemeType, tail: boolean): (frame: Frame) => SchemeType {
     if (sexp === null) {
-      return () => trampolineDone(false);
+      return () => false;
     }
     const formsList = [...(sexp as SCons)];
     // All but last are not in tail position, last one is
@@ -308,19 +301,16 @@ export class SchemeAnalyzer {
     return (frame: Frame) => {
       for (let i = 0; i < forms.length - 1; i++) {
         const result = trampoline(forms[i](frame));
-        if (result !== false) return trampolineDone(result);
+        if (result !== false) return result;
       }
-      // Last form: return its result directly (may be a thunk if tail)
+      // Last form: return its result directly (may be a Thunk if tail)
       return forms[forms.length - 1](frame);
     };
   }
 
-  private analyzeAnd(
-    sexp: SchemeType,
-    tail: boolean,
-  ): (frame: Frame) => TrampolineResult {
+  private analyzeAnd(sexp: SchemeType, tail: boolean): (frame: Frame) => SchemeType {
     if (sexp === null) {
-      return () => trampolineDone(true);
+      return () => true;
     }
     const formsList = [...(sexp as SCons)];
     // All but last are not in tail position, last one is
@@ -330,17 +320,14 @@ export class SchemeAnalyzer {
     return (frame: Frame) => {
       for (let i = 0; i < forms.length - 1; i++) {
         const result = trampoline(forms[i](frame));
-        if (result === false) return trampolineDone(false);
+        if (result === false) return false;
       }
-      // Last form: return its result directly (may be a thunk if tail)
+      // Last form: return its result directly (may be a Thunk if tail)
       return forms[forms.length - 1](frame);
     };
   }
 
-  private analyzeIf(
-    sexp: SCons,
-    tail: boolean,
-  ): (frame: Frame) => TrampolineResult {
+  private analyzeIf(sexp: SCons, tail: boolean): (frame: Frame) => SchemeType {
     const condition = this.analyze(sexp.car, false);
     const consequent = this.analyze(safeCar(sexp.cdr), tail);
     const altSexp = safeCdr(sexp.cdr);
@@ -350,25 +337,21 @@ export class SchemeAnalyzer {
       if (trampoline(condition(frame)) !== false) {
         return consequent(frame);
       } else {
-        return alternative !== null
-          ? alternative(frame)
-          : trampolineDone(false);
+        return alternative !== null ? alternative(frame) : false;
       }
     };
   }
 
-  private analyzeQuasiquote(
-    sexp: SchemeType,
-  ): (frame: Frame) => TrampolineResult {
+  private analyzeQuasiquote(sexp: SchemeType): (frame: Frame) => SchemeType {
     // Atoms are returned as-is (like quote)
     if (!(sexp instanceof SCons)) {
-      return () => trampolineDone(sexp);
+      return () => sexp;
     }
 
     // (unquote expr) - evaluate expr (not in tail position)
     if (carIsId(sexp, "unquote")) {
       const inner = this.analyze(safeCar(sexp.cdr), false);
-      return (frame: Frame) => trampolineDone(trampoline(inner(frame)));
+      return (frame: Frame) => trampoline(inner(frame));
     }
 
     // (unquote-splicing expr) at top level is an error
@@ -379,7 +362,7 @@ export class SchemeAnalyzer {
     // It's a list - process each element, handling unquote-splicing
     const elements: Array<{
       isSplice: boolean;
-      func: (frame: Frame) => TrampolineResult;
+      func: (frame: Frame) => SchemeType;
     }> = [];
 
     let current: SchemeType = sexp;
@@ -433,14 +416,11 @@ export class SchemeAnalyzer {
         result = new SCons(resultElements[i], result);
       }
 
-      return trampolineDone(result);
+      return result;
     };
   }
 
-  private analyzeBody(
-    sexp: SCons,
-    tail: boolean,
-  ): (frame: Frame) => TrampolineResult {
+  private analyzeBody(sexp: SCons, tail: boolean): (frame: Frame) => SchemeType {
     const bodySexps = [...sexp];
 
     // All but last expression are not in tail position
@@ -453,7 +433,7 @@ export class SchemeAnalyzer {
       for (let i = 0; i < body.length - 1; i++) {
         trampoline(body[i](frame));
       }
-      // Return the last expression's result (may be a thunk if tail)
+      // Return the last expression's result (may be a Thunk if tail)
       return body[body.length - 1](frame);
     };
   }

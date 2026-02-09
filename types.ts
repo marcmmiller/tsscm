@@ -22,6 +22,13 @@ export class SCons {
 }
 
 //
+// Trampoline thunk for tail call elimination
+//
+export class Thunk {
+  constructor(public readonly cont: () => SchemeType) {}
+}
+
+//
 // Symbol table / Environment
 //
 export class Frame {
@@ -68,7 +75,7 @@ export class SchemeClosure {
   constructor(
     protected params: string[],
     protected restParam: string | null,
-    protected expr: (frame: Frame) => TrampolineResult,
+    protected expr: (frame: Frame) => SchemeType,
     protected env: Frame,
   ) {}
 
@@ -97,9 +104,9 @@ export class SchemeClosure {
   }
 
   // For tail calls: return thunk for trampoline
-  public evalTail(args: SchemeType[]): TrampolineResult {
+  public evalTail(args: SchemeType[]): Thunk {
     const frame = this.bindArgs(args);
-    return trampolineThunk(() => this.expr(frame));
+    return new Thunk(() => this.expr(frame));
   }
 }
 
@@ -108,29 +115,15 @@ export type SchemeType =
   | SchemeBuiltin
   | SchemeClosure
   | SCons
+  | Thunk
   | number
   | string
   | boolean
   | null;
 
-//
-// Trampoline types for tail call elimination
-//
-export type TrampolineResult =
-  | { done: true; value: SchemeType }
-  | { done: false; thunk: () => TrampolineResult };
-
-export function trampolineDone(value: SchemeType): TrampolineResult {
-  return { done: true, value };
-}
-
-export function trampolineThunk(thunk: () => TrampolineResult): TrampolineResult {
-  return { done: false, thunk };
-}
-
-export function trampoline(result: TrampolineResult): SchemeType {
-  while (!result.done) {
-    result = result.thunk();
+export function trampoline(result: SchemeType): SchemeType {
+  while (result instanceof Thunk) {
+    result = result.cont();
   }
-  return result.value;
+  return result;
 }
