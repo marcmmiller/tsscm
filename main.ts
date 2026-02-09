@@ -2,7 +2,7 @@ import { createReadStream, existsSync } from "fs";
 import { resolve } from "path";
 import { TokenType, InputStream, Lexer } from "./lexer";
 import { SchemeParser } from "./parser";
-import { Frame } from "./types";
+import { SchemeType, SchemeId, Frame } from "./types";
 import { SchemeAnalyzer, sexpToStr } from "./analyzer";
 import { initEnv } from "./builtins";
 
@@ -24,6 +24,11 @@ export async function repl(
       const expanded = analyzer.expandMacros(parsed, env);
       const analyzed = analyzer.analyzeSexp(expanded);
       const result = analyzed(env);
+      const loadNext = env.lookup("*load-next*");
+      if (loadNext !== false) {
+        env.set("*load-next*", false);
+        loadSexp(loadNext, env, analyzer);
+      }
       if (print) {
         console.log(sexpToStr(result));
       }
@@ -33,7 +38,20 @@ export async function repl(
   }
 }
 
+async function loadSexp(path: SchemeType, env: Frame, analyzer: SchemeAnalyzer): Promise<void> {
+  let pathStr: string;
+  if (path instanceof SchemeId) {
+    pathStr = path.id + ".scm";
+  } else if (typeof(path) === "string") {
+    pathStr = path
+  } else {
+    throw new Error("Incorrect type for path: " + sexpToStr(path));
+  }
+  return await load(resolve(__dirname, pathStr), env, analyzer);
+}
+
 async function load(libPath: string, env: Frame, analyzer: SchemeAnalyzer): Promise<void> {
+  console.log("loading ", libPath);
   if (existsSync(libPath)) {
     await repl(
       env,

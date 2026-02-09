@@ -12,7 +12,14 @@ export function initEnv(): Frame {
   const env = new Frame(null);
 
   // Show macro expansions
-  env.set("*show-me*", false)
+  env.set("*show-me*", false);
+
+  env.set("*load-next*", false);
+
+  env.set("load", new SchemeBuiltin((args) => {
+    env.set("*load-next*", args[0]);
+    return true;
+  }));
 
   env.set(
     "+",
