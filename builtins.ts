@@ -10,6 +10,10 @@ import { sexpToStr } from "./analyzer";
 
 export function initEnv(): Frame {
   const env = new Frame(null);
+
+  // Show macro expansions
+  env.set("*show-me*", false)
+
   env.set(
     "+",
     new SchemeBuiltin((args) =>

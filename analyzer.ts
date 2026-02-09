@@ -121,12 +121,14 @@ export class SchemeAnalyzer {
     return [sexp, false];
   }
 
-  expandMacros(sexp: SchemeType): SchemeType {
+  expandMacros(sexp: SchemeType, env: Frame): SchemeType {
     let current = sexp;
     while (true) {
       const [expanded, changed] = this.expandMacrosSexp(current);
       if (!changed) return current;
-      //console.log("macro expansion:", sexpToStr(expanded));
+      if (env.lookup("*show-me*") == true) {
+        console.log("macro expansion:", sexpToStr(expanded));
+      }
       current = expanded;
     }
   }

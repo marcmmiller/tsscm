@@ -18,6 +18,7 @@
 ;;  eq?
 ;;  null?
 ;;  pair?
+;;  set!
 ;;
 (define-macro (begin . body)
   (cons 'if (cons #f (cons #f body))))
