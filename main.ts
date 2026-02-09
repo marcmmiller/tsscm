@@ -21,7 +21,7 @@ export async function repl(
       if (token.type === TokenType.EOF) break;
 
       const parsed = await parser.parse();
-      const expanded = analyzer.expandMacros(parsed);
+      const expanded = analyzer.expandMacros(parsed, env);
       const analyzed = analyzer.analyzeSexp(expanded);
       const result = analyzed(env);
       if (print) {
