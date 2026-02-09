@@ -95,3 +95,27 @@
   `(let ,(map (lambda (b) (list (car b) #f)) bindings)
      ,@(map (lambda (b) `(set! ,(car b) ,(cadr b))) bindings)
      ,@body))
+
+;;
+;; Promises
+;;
+(define force (lambda (proc) (proc)))
+
+;; Taken directly from R4RS section 6.9
+(define *make-promise*
+  (lambda (proc)
+    (let ((result-ready? #f)
+          (result #f))
+      (lambda ()
+        (if result-ready?
+            result
+            (let ((x (proc)))
+              (if result-ready?
+                  result
+                  (begin (set! result-ready? #t)
+                         (set! result x)
+                         result))))))))
+
+(define-macro (delay expr)
+  `(*make-promise* (lambda () ,expr)))
+
